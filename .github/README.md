@@ -2,6 +2,8 @@
 
 [Preview](#preview)
 
+Beamz is a lightweight, high‑performance self‑hosted file server built for speed and efficiency. It ships as a tiny Docker image (only 249 MB) for minimal resource usage and easy deployment, exposes a ShareX‑compatible upload endpoint, and includes a web dashboard to browse and manage uploaded files and thumbnails. Actively developed — WIP (expect frequent updates and improvements).
+
 Deployment guide — preferred: Docker Compose. Also includes manual deployment steps for advanced users.
 
 ## Overview
