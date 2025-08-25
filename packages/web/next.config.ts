@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   output: "standalone",
+  assetPrefix: process.env.NODE_ENV === "production" ? process.env.CDN_URL : "",
   outputFileTracingRoot: path.join(__dirname, "../../"),
   async redirects() {
     return [
