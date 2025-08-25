@@ -15,12 +15,10 @@ export class CronService {
   private httpServer: SimpleHttpServer;
   private settingsManager: SettingsManager;
   private jobScheduler: JobScheduler;
-  private settingsWatcher?: NodeJS.Timeout;
 
   constructor() {
     this.logger = new Logger();
 
-    const apiBaseUrl = process.env.BASE_URL || "http://localhost:3333";
     const controlPort = parseInt(process.env.CRON_CONTROL_PORT || "3335");
 
     this.httpServer = new SimpleHttpServer({ port: controlPort });
@@ -301,32 +299,6 @@ export class CronService {
     this.logger.info("Settings loaded successfully");
   }
 
-  private startSettingsWatcher() {
-    const watchInterval = parseInt(
-      process.env.SETTINGS_WATCH_INTERVAL || "30000"
-    );
-
-    this.settingsWatcher = setInterval(async () => {
-      try {
-        await this.loadSettings();
-      } catch (error) {
-        this.logger.error("Failed to check settings during watch", { error });
-      }
-    }, watchInterval);
-
-    this.logger.info(
-      `Settings watcher started (checking every ${watchInterval}ms)`
-    );
-  }
-
-  private stopSettingsWatcher() {
-    if (this.settingsWatcher) {
-      clearInterval(this.settingsWatcher);
-      this.settingsWatcher = undefined;
-      this.logger.info("Settings watcher stopped");
-    }
-  }
-
   private async restart() {
     this.logger.info("Restarting cron service due to settings change");
 
@@ -366,9 +338,6 @@ export class CronService {
       this.logger.warn(
         "Cron service disabled - settings indicate cron is disabled"
       );
-      // Still start the settings watcher to detect when it gets enabled
-      this.startSettingsWatcher();
-      // Start control server even when cron is disabled for management
       await this.httpServer.start();
       this.logger.info(
         `Control server started on port ${this.httpServer.getPort()}`
@@ -378,9 +347,6 @@ export class CronService {
 
     // Start the jobs
     await this.startJobs();
-
-    // Start watching for settings changes
-    this.startSettingsWatcher();
 
     // Start the control server for management endpoints
     await this.httpServer.start();
@@ -418,7 +384,6 @@ export class CronService {
   public stop() {
     this.logger.info("Stopping cron service");
     this.jobScheduler.stop();
-    this.stopSettingsWatcher();
     this.httpServer.stop();
   }
 
@@ -426,10 +391,6 @@ export class CronService {
     return {
       cleanupJob: this.jobScheduler.getCleanupJobStatus(),
       tempCleanupJob: this.jobScheduler.getTempCleanupJobStatus(),
-      settingsWatcher: {
-        running: !!this.settingsWatcher,
-        interval: process.env.SETTINGS_WATCH_INTERVAL || "30000",
-      },
     };
   }
 }

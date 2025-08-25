@@ -32,6 +32,7 @@ export const cronRouter = router({
       const status = await cronHealth();
 
       const cronData = status.cron || {};
+      const lastSettingsCheck = (cronData as any).settingsWatcher?.interval;
       const isRunning =
         !!cronData.cleanupJob?.running || !!cronData.tempCleanupJob?.running;
 
@@ -65,7 +66,7 @@ export const cronRouter = router({
           running: false,
           schedule: tempSchedule,
         },
-        lastSettingsCheck: cronData.settingsWatcher?.interval,
+        lastSettingsCheck,
         controlServerRunning: true,
       };
     } catch (error) {

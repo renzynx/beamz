@@ -21,7 +21,6 @@ export interface CronSettings {
 export interface CronStatus {
   cleanupJob: JobInfo;
   tempCleanupJob: JobInfo;
-  settingsWatcher: { running: boolean; interval: string };
 }
 
 export type LogLevel = "info" | "error" | "warn" | "debug";

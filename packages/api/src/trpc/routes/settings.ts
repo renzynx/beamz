@@ -3,6 +3,7 @@ import { adminProcedure, publicProcedure, router } from "../init";
 import { db, settings, eq } from "@beam/db";
 import { SETTINGS } from "@/lib/settings";
 import SuperJSON from "superjson";
+import { cronReloadSettings } from "@/services/background-jobs";
 
 const dbSettingSchema = z.object({
   appName: z.string().min(1),
@@ -79,7 +80,35 @@ export const settingsRouter = router({
       .where(eq(settings.id, SETTINGS.id))
       .returning();
 
+    const prevSettings = { ...SETTINGS };
+
     Object.assign(SETTINGS, newSettings[0]);
+
+    // If any cron-related setting changed, reload cron service
+    const cronFields = [
+      "completedJobsCleanupSchedule",
+      "expiredFilesCleanupSchedule",
+      "tempCleanupSchedule",
+      "cronEnabled",
+      "cronLogLevel",
+      "cronTimezone",
+    ];
+
+    const shouldReloadCron = cronFields.some((key) => {
+      // If the user provided this field in the input, assume they intended to change it
+      if (Object.prototype.hasOwnProperty.call(input, key)) return true;
+      // Otherwise compare previous and new values
+      return (prevSettings as any)[key] !== (newSettings[0] as any)[key];
+    });
+
+    if (shouldReloadCron) {
+      try {
+        await cronReloadSettings();
+      } catch (err) {
+        // non-fatal: log and continue
+        console.error("Failed to reload cron settings:", err);
+      }
+    }
 
     return {
       ...newSettings[0],
