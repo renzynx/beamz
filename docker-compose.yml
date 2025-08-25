@@ -4,6 +4,7 @@ services:
     container_name: beamz
     environment:
       - NODE_ENV=production
+      - BASE_URL=http://example.com # The URL you are deploying to
       - SECRET=32-characters-random-string-for-secret
     volumes:
       - ./uploads:/app/uploads

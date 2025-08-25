@@ -36,7 +36,7 @@ This is the simplest and recommended way to deploy locally or on a server that s
 
 3. Environment variables (set via compose file or environment):
    - NODE_ENV=production
-   - BASE_URL=http://localhost:3333 # DO NOT change this unless proxy is on a different host/port
+   - BASE_URL=https://example.com # The URL you are deploying to
    - SECRET=32-characters-random-string-for-secret
 
 4. Volumes (compose) mount:
@@ -63,6 +63,7 @@ Notes:
 
 - The example `config/Caddyfile` routes API requests under `/api/*` to the API and all other routes to the web server. Swap the proxy implementation by using the example docker-compose.\* files in `config/`.
 - If you change ports in any service image, update the corresponding proxy configuration.
+- Important: A proxy is required for the application to work — configure your proxy to forward API requests appropriately (for example, proxy requests from `api:3333/api` to `web:3000/api`).
 
 ## Manual deployment (no Docker) — for advanced / debugging
 
@@ -181,7 +182,7 @@ Important:
 
 ## Files of interest
 
-- `docker-compose.yml` — recommended compose file (uses `caddy` as proxy)
+- `docker-compose.yml` — compose file
 - `config/Caddyfile` — Caddy reverse proxy example
 - `config/docker-compose.*.yml` — other proxy examples (traefik, nginx, apache, haproxy, envoy)
 
