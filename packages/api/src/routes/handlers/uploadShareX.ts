@@ -1,4 +1,4 @@
-import { db, eq, files, user } from "@beam/db";
+import { db, eq, files, user, sql } from "@beam/db";
 import { generateId } from "better-auth";
 import { fileTypeFromStream } from "file-type";
 import { promises as fs } from "fs";
@@ -129,19 +129,32 @@ app.post(
       }
 
       try {
-        const [newFile] = await db
-          .insert(files)
-          .values({
-            id: generateId(),
-            key: slug,
-            mimeType: fileType.mime,
-            originalName: file.name,
-            size: file.size,
-            userId: userData.id,
-          })
-          .returning();
+        // Insert file and increment user's usedQuota atomically
+        const result = await db.transaction(async (tx) => {
+          const [inserted] = await tx
+            .insert(files)
+            .values({
+              id: generateId(),
+              key: slug,
+              mimeType: fileType.mime,
+              originalName: file.name,
+              size: file.size,
+              userId: userData.id,
+            })
+            .returning();
 
-        // Tell background service to generate thumbnails/previews
+          await tx
+            .update(user)
+            .set({
+              usedQuota: sql`${user.usedQuota} + ${file.size}`,
+            })
+            .where(eq(user.id, userData.id));
+
+          return inserted;
+        });
+
+        const newFile = result;
+
         try {
           await enqueueThumbnail(
             newFile.id,
@@ -164,7 +177,7 @@ app.post(
       } catch (error) {
         console.error("Database error during file insertion:", error);
 
-        // Clean up uploaded file if database insertion fails
+        // Clean up uploaded file if database transaction fails
         try {
           await fs.unlink(finalPath);
         } catch (cleanupError) {

@@ -146,6 +146,50 @@ app.post(
         );
       }
 
+      // Check user quota BEFORE saving metadata and moving file
+      try {
+        const dbUserRes = await db
+          .select()
+          .from(user)
+          .where(eq(user.id, uploadMeta.userId))
+          .limit(1);
+
+        const dbUser = dbUserRes[0];
+
+        if (!dbUser) {
+          await enqueueDiskCleanup([partPath]);
+          registry.delete(id);
+          return c.json({ error: "User not found" }, 404);
+        }
+
+        if (dbUser.quota > 0) {
+          const remainingQuota = dbUser.quota - dbUser.usedQuota;
+
+          if (remainingQuota <= 0) {
+            await enqueueDiskCleanup([partPath]);
+            registry.delete(id);
+            return c.json({ error: "Storage quota exceeded" }, 403);
+          }
+
+          if (uploadMeta.size > remainingQuota) {
+            await enqueueDiskCleanup([partPath]);
+            registry.delete(id);
+            return c.json(
+              {
+                error: "File size exceeds remaining quota",
+                remainingQuota,
+              },
+              403
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Failed to verify user quota:", error);
+        await enqueueDiskCleanup([partPath]);
+        registry.delete(id);
+        return c.json({ error: "Failed to verify quota" }, 500);
+      }
+
       const fileId = generateId();
       const actualFilename = getStoredName(fileSlug, uploadMeta.filename);
 
