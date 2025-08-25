@@ -1,7 +1,8 @@
 import { db, settings, user, count, eq } from "@beam/db";
 import { runMigrations } from "@beam/db/migrate";
 import { SETTINGS } from "./settings";
-import { SECRET } from "./constants";
+import { SECRET, TEMP_DIR } from "./constants";
+import { promises as fs } from "fs";
 
 if (!SECRET) {
   throw new Error("SECRET is not defined");
@@ -9,6 +10,7 @@ if (!SECRET) {
 
 (async () => {
   await runMigrations();
+  await fs.mkdir(TEMP_DIR, { recursive: true });
 
   let [data, [{ userCount }]] = await Promise.all([
     db.select().from(settings),

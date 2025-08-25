@@ -20,7 +20,7 @@ export class SettingsManager {
 
       // Create a hash of relevant settings to detect changes
       const settingsHash = JSON.stringify({
-        jobCleanupSchedule: dbSettings?.jobCleanupSchedule,
+        completedJobsCleanupSchedule: dbSettings?.completedJobsCleanupSchedule,
         tempCleanupSchedule: dbSettings?.tempCleanupSchedule,
         cronLogLevel: dbSettings?.cronLogLevel,
         cronTimezone: dbSettings?.cronTimezone,
@@ -36,21 +36,25 @@ export class SettingsManager {
 
       // Merge database settings with environment variable fallbacks
       this.cronSettings = {
-        jobCleanupSchedule:
-          dbSettings?.jobCleanupSchedule ||
-          process.env.JOB_CLEANUP_SCHEDULE ||
+        completedJobsCleanupSchedule:
+          dbSettings?.completedJobsCleanupSchedule ||
+          process.env.COMPLETED_JOBS_CLEANUP_SCHEDULE ||
           "0 2 * * *", // Daily at 2 AM
         tempCleanupSchedule:
           dbSettings?.tempCleanupSchedule ||
           process.env.TEMP_CLEANUP_SCHEDULE ||
           "*/30 * * * *", // Every 30 minutes
+        expiredFilesCleanupSchedule:
+          dbSettings?.expiredFilesCleanupSchedule ||
+          process.env.EXPIRED_FILES_CLEANUP_SCHEDULE ||
+          "0 4 * * *", // Daily at 4 AM
         logLevel: dbSettings?.cronLogLevel || process.env.LOG_LEVEL || "info",
         timezone: dbSettings?.cronTimezone || process.env.TIMEZONE || "UTC",
       };
 
       this.logger.info("Settings loaded from database", {
         logLevel: this.cronSettings.logLevel,
-        cleanupSchedule: this.cronSettings.jobCleanupSchedule,
+        cleanupSchedule: this.cronSettings.completedJobsCleanupSchedule,
         tempCleanupSchedule: this.cronSettings.tempCleanupSchedule,
         timezone: this.cronSettings.timezone,
         settingsChanged: this.settingsChanged,
@@ -65,9 +69,12 @@ export class SettingsManager {
 
       // Fallback to environment variables only
       this.cronSettings = {
-        jobCleanupSchedule: process.env.JOB_CLEANUP_SCHEDULE || "0 2 * * *",
+        completedJobsCleanupSchedule:
+          process.env.COMPLETED_JOBS_CLEANUP_SCHEDULE || "0 2 * * *",
         tempCleanupSchedule:
           process.env.TEMP_CLEANUP_SCHEDULE || "*/30 * * * *",
+        expiredFilesCleanupSchedule:
+          process.env.EXPIRED_FILES_CLEANUP_SCHEDULE || "0 4 * * *",
         logLevel: process.env.LOG_LEVEL || "info",
         timezone: process.env.TIMEZONE || "UTC",
       };

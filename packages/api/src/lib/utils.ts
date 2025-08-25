@@ -10,25 +10,27 @@ export function generateFileSlug(): string {
     .substring(0, 11);
 }
 
-export function getStoredName(slug: string, originalFilename: string): string {
+export function getStoredName(
+  slug: string,
+  originalFilename: string,
+  variant?: string
+): string {
   const ext = getFileExtension(originalFilename);
-  return `${slug}${ext}`;
+  return variant ? `${slug}_${variant}${ext}` : `${slug}${ext}`;
 }
 
 export function getFileExtension(filename: string): string {
   return extname(filename);
 }
 
-export function formatFileSize(size: number): string {
-  const units = ["B", "KB", "MB", "GB"];
-  let i = 0;
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 Bytes";
 
-  while (size >= 1024 && i < units.length - 1) {
-    size /= 1024;
-    i++;
-  }
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return `${size.toFixed(2)} ${units[i]}`;
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
 export function generateUserAvatar(email: string): string {

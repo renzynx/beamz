@@ -2,8 +2,6 @@ import z from "zod";
 import { adminProcedure, router } from "../init";
 import { db, user } from "@beam/db";
 import { asc, desc, count } from "@beam/db";
-import { SETTINGS } from "@/lib/settings";
-import { TRPCError } from "@trpc/server";
 
 // Output schema for users
 export const userItemSchema = z.object({

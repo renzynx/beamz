@@ -7,6 +7,7 @@ import upload from "./routes/upload";
 import { appRouter } from "./trpc";
 import { SETTINGS } from "./lib/settings";
 import SuperJSON from "superjson";
+import { UPLOAD_DIR } from "./lib/constants";
 
 const app = new Hono();
 

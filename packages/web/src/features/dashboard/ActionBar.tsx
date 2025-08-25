@@ -71,7 +71,12 @@ export function ActionBar({ selectedCount }: ActionBarProps) {
           </Button>
 
           {/* Clear selection */}
-          <Button size="sm" variant="ghost" onClick={deselectAllFiles}>
+          <Button
+            className="cursor-pointer"
+            size="sm"
+            variant="ghost"
+            onClick={deselectAllFiles}
+          >
             <X size={16} />
           </Button>
         </div>

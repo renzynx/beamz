@@ -1,12 +1,11 @@
 import { z } from "zod";
-import {
-  generateThumbnail,
-  deleteThumbnails,
-  cleanupOrphanedTempFiles,
-} from "./thumbnail";
+import { generateThumbnail, deleteThumbnails } from "./thumbnail";
 import { db, files, jobs, eq, and, lte, count } from "@beam/db";
 import superjson from "superjson";
 import { promises as fs } from "fs";
+import { Logger } from "./logger";
+
+const logger = new Logger();
 
 const thumbnailJobSchema = z.object({
   fileId: z.string(),
@@ -38,7 +37,7 @@ async function enqueueJob<T>(
   const jobId = generateJobId();
   const processAt = new Date(Date.now() + delayMs);
 
-  console.log(`Enqueueing job ${jobId} to ${queue} with payload:`, payload);
+  logger.debug(`Enqueueing job ${jobId} to ${queue} with payload:`, payload);
 
   await db.insert(jobs).values({
     id: jobId,
@@ -165,7 +164,7 @@ class QueueWorker<T> {
       this.processJobs();
     }, pollInterval);
 
-    console.log(`Started ${this.queueName} worker`);
+    logger.info(`Started ${this.queueName} worker`);
   }
 
   stop(): void {
@@ -174,7 +173,7 @@ class QueueWorker<T> {
       clearInterval(this.interval);
       this.interval = null;
     }
-    console.log(`Stopped ${this.queueName} worker`);
+    logger.info(`Stopped ${this.queueName} worker`);
   }
 
   private async processJobs(): Promise<void> {
@@ -185,9 +184,9 @@ class QueueWorker<T> {
       if (!job) return;
 
       try {
-        console.log(`Processing job ${job.id} with raw payload:`, job.payload);
+        logger.debug(`Processing job ${job.id} with raw payload:`, job.payload);
         const parsedPayload = superjson.parse<T>(job.payload);
-        console.log(`Parsed payload:`, parsedPayload);
+        logger.debug(`Parsed payload:`, parsedPayload);
         const validatedData = this.schema.parse(parsedPayload);
 
         // Process the job
@@ -195,16 +194,16 @@ class QueueWorker<T> {
 
         // Mark as completed
         await completeJob(job.id);
-        console.log(`[${job.id}] Job completed successfully`);
+        logger.info(`[${job.id}] Job completed successfully`);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        console.error(`[${job.id}] Job failed:`, errorMessage);
+        logger.error(`[${job.id}] Job failed:`, errorMessage);
 
         await failJob(job.id, errorMessage, job.attempts, job.maxAttempts);
       }
     } catch (error) {
-      console.error(`Error processing ${this.queueName} jobs:`, error);
+      logger.error(`Error processing ${this.queueName} jobs:`, error);
     }
   }
 }
@@ -212,7 +211,7 @@ class QueueWorker<T> {
 const thumbnailWorker = new QueueWorker(
   "thumbnail_jobs",
   async (data: ThumbnailJob) => {
-    console.log(`Processing thumbnail for file: ${data.actualFilename}`);
+    logger.info(`Processing thumbnail for file: ${data.actualFilename}`);
 
     const result = await generateThumbnail(
       data.actualFilename,
@@ -228,7 +227,7 @@ const thumbnailWorker = new QueueWorker(
       })
       .where(eq(files.id, data.fileId));
 
-    console.log(`Thumbnail generated successfully for: ${data.actualFilename}`);
+    logger.info(`Thumbnail generated successfully for: ${data.actualFilename}`);
   },
   thumbnailJobSchema,
   { concurrency: 1, pollInterval: 1000 }
@@ -237,16 +236,16 @@ const thumbnailWorker = new QueueWorker(
 const diskCleanupWorker = new QueueWorker(
   "disk_cleanup_jobs",
   async (data: DiskCleanupJob) => {
-    console.log(`Processing disk cleanup: ${data.description}`);
+    logger.info(`Processing disk cleanup: ${data.description}`);
 
     const deleteResults = await Promise.allSettled(
       data.filePaths.map(async (filePath) => {
         try {
           await fs.unlink(filePath);
-          console.log(`Deleted file: ${filePath}`);
+          logger.info(`Deleted file: ${filePath}`);
           return { success: true, path: filePath };
         } catch (error) {
-          console.warn(`Failed to delete file: ${filePath}`, error);
+          logger.warn(`Failed to delete file: ${filePath}`, error);
           return { success: false, path: filePath, error };
         }
       })
@@ -257,11 +256,11 @@ const diskCleanupWorker = new QueueWorker(
     ).length;
 
     if (failedDeletions > 0) {
-      console.warn(
+      logger.warn(
         `Disk cleanup completed with ${failedDeletions} failed deletions out of ${data.filePaths.length} total files`
       );
     } else {
-      console.log(
+      logger.info(
         `Disk cleanup completed successfully: deleted ${data.filePaths.length} files`
       );
     }
@@ -282,7 +281,7 @@ export async function queueThumbnailGeneration(
     mimeType,
     originalName,
   });
-  console.log(
+  logger.info(
     `Queued thumbnail generation for: ${actualFilename} (job ${jobId})`
   );
   return jobId;
@@ -298,7 +297,7 @@ export async function queueDiskCleanup(
     filePaths,
     description,
   });
-  console.log(
+  logger.info(
     `Queued disk cleanup for ${filePaths.length} files: ${description}`
   );
 }
@@ -309,7 +308,7 @@ export async function cleanupFileThumbnails(
   try {
     await deleteThumbnails(actualFilename);
   } catch (error) {
-    console.error(`Failed to cleanup thumbnails for ${actualFilename}:`, error);
+    logger.error(`Failed to cleanup thumbnails for ${actualFilename}:`, error);
   }
 }
 
@@ -346,19 +345,6 @@ export async function getQueueStatus(queueName: string): Promise<{
     completed: completedCount?.count || 0,
     failed: failedCount?.count || 0,
   };
-}
-
-export async function cleanupCompletedJobs(
-  olderThanDays: number = 7
-): Promise<number> {
-  const cutoffDate = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
-
-  const deletedJobs = await db
-    .delete(jobs)
-    .where(and(eq(jobs.status, "completed"), lte(jobs.completedAt, cutoffDate)))
-    .returning({ id: jobs.id });
-
-  return deletedJobs.length || 0;
 }
 
 export { thumbnailWorker, diskCleanupWorker };

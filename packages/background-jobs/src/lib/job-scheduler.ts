@@ -1,93 +1,95 @@
 import * as cron from "node-cron";
 import type { CronSettings } from "./types";
 import { Logger } from "./logger";
-import { ApiClient } from "./api-client";
 import { SettingsManager } from "./settings-manager";
+import { cleanupOrphanedTempFiles, cleanupExpiredFiles } from "./files";
+import { cleanupCompletedJobs } from "./jobs";
 
 export class JobScheduler {
-  private cleanupTask?: cron.ScheduledTask;
+  private expiredFilesTask?: cron.ScheduledTask;
+  private completedJobsTask?: cron.ScheduledTask;
   private tempCleanupTask?: cron.ScheduledTask;
   private isRunning: boolean = false;
   private logger: Logger;
-  private apiClient: ApiClient;
   private settingsManager: SettingsManager;
 
-  constructor(
-    logger: Logger,
-    apiClient: ApiClient,
-    settingsManager: SettingsManager
-  ) {
+  constructor(logger: Logger, settingsManager: SettingsManager) {
     this.logger = logger;
-    this.apiClient = apiClient;
     this.settingsManager = settingsManager;
-  }
-
-  private async cleanupUploads() {
-    this.logger.info("Starting uploads cleanup");
-
-    const result = await this.apiClient.cleanupUploads();
-
-    if (result.success) {
-      this.logger.info("Uploads cleanup completed successfully", result.data);
-    } else {
-      this.logger.error("Uploads cleanup failed", { error: result.error });
-    }
-  }
-
-  private async cleanupTempFiles() {
-    this.logger.info("Starting temp files cleanup");
-
-    const result = await this.apiClient.cleanupTempFiles();
-
-    if (result.success) {
-      this.logger.info(
-        "Temp files cleanup completed successfully",
-        result.data
-      );
-    } else {
-      this.logger.error("Temp files cleanup failed", { error: result.error });
-    }
   }
 
   async start(cronSettings: CronSettings) {
     this.logger.info("Starting cron jobs", {
-      cleanupSchedule: cronSettings.jobCleanupSchedule,
+      cleanupSchedule: cronSettings.completedJobsCleanupSchedule,
       tempCleanupSchedule: cronSettings.tempCleanupSchedule,
     });
 
-    // Validate cron schedules
-    if (!cron.validate(cronSettings.jobCleanupSchedule)) {
-      throw new Error(
-        `Invalid cleanup cron schedule: ${cronSettings.jobCleanupSchedule}`
+    // Use safe defaults when provided schedules are invalid
+    const DEFAULT_JOB_CLEANUP_SCHEDULE = "0 2 * * *"; // daily at 2 AM
+    const DEFAULT_TEMP_CLEANUP_SCHEDULE = "*/30 * * * *"; // every 30 minutes
+    const DEFAULT_TIMEZONE = "UTC";
+
+    let jobSchedule =
+      cronSettings.completedJobsCleanupSchedule || DEFAULT_JOB_CLEANUP_SCHEDULE;
+    if (!cron.validate(jobSchedule)) {
+      this.logger.info(
+        `Invalid completedJobsCleanupSchedule '${cronSettings.completedJobsCleanupSchedule}', falling back to default '${DEFAULT_JOB_CLEANUP_SCHEDULE}'`
       );
+      jobSchedule = DEFAULT_JOB_CLEANUP_SCHEDULE;
     }
 
-    if (!cron.validate(cronSettings.tempCleanupSchedule)) {
-      throw new Error(
-        `Invalid temp cleanup cron schedule: ${cronSettings.tempCleanupSchedule}`
+    let tempSchedule =
+      cronSettings.tempCleanupSchedule || DEFAULT_TEMP_CLEANUP_SCHEDULE;
+    if (!cron.validate(tempSchedule)) {
+      this.logger.info(
+        `Invalid tempCleanupSchedule '${cronSettings.tempCleanupSchedule}', falling back to default '${DEFAULT_TEMP_CLEANUP_SCHEDULE}'`
       );
+      tempSchedule = DEFAULT_TEMP_CLEANUP_SCHEDULE;
     }
 
-    // Main cleanup job (uploads, old files, etc.)
-    this.cleanupTask = cron.schedule(
-      cronSettings.jobCleanupSchedule,
-      () => this.cleanupUploads(),
+    const timezone = cronSettings.timezone || DEFAULT_TIMEZONE;
+
+    // Task: enqueue expired files for deletion (DB-driven)
+    this.expiredFilesTask = cron.schedule(
+      jobSchedule,
+      async () => {
+        try {
+          await cleanupExpiredFiles();
+        } catch (err) {
+          this.logger.error("Error enqueuing expired files for deletion", err);
+        }
+      },
       {
-        timezone: cronSettings.timezone,
+        timezone,
       }
     );
 
-    // Temp files cleanup job (more frequent)
-    this.tempCleanupTask = cron.schedule(
-      cronSettings.tempCleanupSchedule,
-      () => this.cleanupTempFiles(),
+    // Task: cleanup completed jobs
+    this.completedJobsTask = cron.schedule(
+      jobSchedule,
+      async () => {
+        try {
+          await cleanupCompletedJobs();
+        } catch (err) {
+          this.logger.error("Error cleaning up completed jobs", err);
+        }
+      },
       {
-        timezone: cronSettings.timezone,
+        timezone,
+      }
+    );
+
+    this.tempCleanupTask = cron.schedule(
+      tempSchedule,
+      () => cleanupOrphanedTempFiles(),
+      {
+        timezone,
       }
     );
 
     // Start the tasks
-    this.cleanupTask.start();
+    this.expiredFilesTask?.start();
+    this.completedJobsTask?.start();
     this.tempCleanupTask.start();
     this.isRunning = true;
 
@@ -97,11 +99,18 @@ export class JobScheduler {
   stop() {
     this.logger.info("Stopping cron jobs");
 
-    if (this.cleanupTask) {
-      this.cleanupTask.stop();
-      this.cleanupTask.destroy();
-      this.cleanupTask = undefined;
-      this.logger.info("Cleanup job stopped");
+    if (this.expiredFilesTask) {
+      this.expiredFilesTask.stop();
+      this.expiredFilesTask.destroy();
+      this.expiredFilesTask = undefined;
+      this.logger.info("Expired files job stopped");
+    }
+
+    if (this.completedJobsTask) {
+      this.completedJobsTask.stop();
+      this.completedJobsTask.destroy();
+      this.completedJobsTask = undefined;
+      this.logger.info("Completed jobs cleanup stopped");
     }
 
     if (this.tempCleanupTask) {
@@ -115,14 +124,20 @@ export class JobScheduler {
   }
 
   isJobsRunning(): boolean {
-    return this.isRunning && (!!this.cleanupTask || !!this.tempCleanupTask);
+    return (
+      this.isRunning &&
+      (!!this.expiredFilesTask ||
+        !!this.completedJobsTask ||
+        !!this.tempCleanupTask)
+    );
   }
 
   getCleanupJobStatus(): { running: boolean; schedule: string } {
     const cronSettings = this.settingsManager.getCurrentSettings();
     return {
-      running: this.isRunning && !!this.cleanupTask,
-      schedule: cronSettings?.jobCleanupSchedule || "unknown",
+      running:
+        this.isRunning && (!!this.expiredFilesTask || !!this.completedJobsTask),
+      schedule: cronSettings?.completedJobsCleanupSchedule || "unknown",
     };
   }
 

@@ -10,8 +10,9 @@ const settingSchema = z.object({
   chunkSize: z.number().int().min(1024),
   maxFileSize: z.number().int().min(1024),
   blackListedExtensions: z.array(z.string()).optional().nullable(),
-  // Cron settings
-  jobCleanupSchedule: z.string().optional().nullable(),
+  // Cron settings - updated for per-task schedules
+  completedJobsCleanupSchedule: z.string().optional().nullable(),
+  expiredFilesCleanupSchedule: z.string().optional().nullable(),
   tempCleanupSchedule: z.string().optional().nullable(),
   cronEnabled: z.boolean().optional(),
   cronLogLevel: z.string().optional().nullable(),
@@ -28,8 +29,8 @@ const settingInputSchema = z.object({
     .optional()
     .nullable()
     .transform((val) => SuperJSON.stringify(val || [])),
-  // Cron settings
-  jobCleanupSchedule: z.string().optional(),
+  completedJobsCleanupSchedule: z.string().optional(),
+  expiredFilesCleanupSchedule: z.string().optional(),
   tempCleanupSchedule: z.string().optional(),
   cronEnabled: z.boolean().optional(),
   cronLogLevel: z.string().optional(),

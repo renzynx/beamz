@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bb3d14cc-b157-4a68-9e33-242438518b0b",
+  "id": "4d74786c-acb9-4776-9730-54da8f81ab92",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -188,6 +188,13 @@
         },
         "updated_at": {
           "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -493,13 +500,21 @@
           "notNull": false,
           "autoincrement": false
         },
-        "job_cleanup_schedule": {
-          "name": "job_cleanup_schedule",
+        "expired_files_cleanup_schedule": {
+          "name": "expired_files_cleanup_schedule",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false,
           "default": "'0 2 * * *'"
+        },
+        "completed_jobs_cleanup_schedule": {
+          "name": "completed_jobs_cleanup_schedule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'0 3 * * *'"
         },
         "temp_cleanup_schedule": {
           "name": "temp_cleanup_schedule",

@@ -11,10 +11,11 @@ export interface JobInfo {
 }
 
 export interface CronSettings {
-  jobCleanupSchedule: string;
   tempCleanupSchedule: string;
   logLevel: string;
   timezone: string;
+  expiredFilesCleanupSchedule?: string;
+  completedJobsCleanupSchedule?: string;
 }
 
 export interface CronStatus {

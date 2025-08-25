@@ -3,7 +3,6 @@ import type { CronStatus, LogLevel } from "./lib/types";
 import { Logger } from "./lib/logger";
 import { SimpleHttpServer } from "./lib/http-server";
 import { SettingsManager } from "./lib/settings-manager";
-import { ApiClient } from "./lib/api-client";
 import { JobScheduler } from "./lib/job-scheduler";
 import { queueThumbnailGeneration, queueDiskCleanup } from "./lib/queue";
 import { isSupportedFileType } from "./lib/thumbnail";
@@ -15,7 +14,6 @@ export class CronService {
   private logger: Logger;
   private httpServer: SimpleHttpServer;
   private settingsManager: SettingsManager;
-  private apiClient: ApiClient;
   private jobScheduler: JobScheduler;
   private settingsWatcher?: NodeJS.Timeout;
 
@@ -27,12 +25,7 @@ export class CronService {
 
     this.httpServer = new SimpleHttpServer({ port: controlPort });
     this.settingsManager = new SettingsManager(this.logger);
-    this.apiClient = new ApiClient(apiBaseUrl, this.logger);
-    this.jobScheduler = new JobScheduler(
-      this.logger,
-      this.apiClient,
-      this.settingsManager
-    );
+    this.jobScheduler = new JobScheduler(this.logger, this.settingsManager);
 
     this.setupRoutes();
   }
@@ -305,14 +298,7 @@ export class CronService {
       return;
     }
 
-    this.logger.info("Settings loaded", {
-      apiBaseUrl: process.env.BASE_URL || "http://localhost:3333",
-      logLevel: cronSettings.logLevel,
-      cleanupSchedule: cronSettings.jobCleanupSchedule,
-      tempCleanupSchedule: cronSettings.tempCleanupSchedule,
-      timezone: cronSettings.timezone,
-      cronEnabled,
-    });
+    this.logger.info("Settings loaded successfully");
   }
 
   private startSettingsWatcher() {

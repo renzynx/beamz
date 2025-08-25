@@ -110,6 +110,7 @@ export const files = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp" })
       .$defaultFn(() => /* @__PURE__ */ new Date())
       .$onUpdate(() => /* @__PURE__ */ new Date()),
+    expiresAt: integer("expires_at", { mode: "timestamp" }),
   },
   (table) => [index("files_key_idx").on(table.key)]
 );
@@ -127,8 +128,12 @@ export const settings = sqliteTable("settings", {
     .notNull()
     .default(1024 * 1024 * 100), // 100mb
   blackListedExtensions: text("blacklisted_extensions"), // should be an array
-  // Cron settings
-  jobCleanupSchedule: text("job_cleanup_schedule").default("0 2 * * *"), // Daily at 2 AM
+  expiredFilesCleanupSchedule: text("expired_files_cleanup_schedule").default(
+    "0 2 * * *"
+  ), // Daily at 2 AM
+  completedJobsCleanupSchedule: text("completed_jobs_cleanup_schedule").default(
+    "0 3 * * *"
+  ), // Daily at 3 AM
   tempCleanupSchedule: text("temp_cleanup_schedule").default("*/30 * * * *"), // Every 30 minutes
   cronEnabled: integer("cron_enabled", { mode: "boolean" })
     .notNull()

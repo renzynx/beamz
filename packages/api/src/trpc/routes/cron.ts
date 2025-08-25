@@ -13,14 +13,9 @@ import { TRPCError } from "@trpc/server";
 export const cronStatusSchema = z.object({
   enabled: z.boolean(),
   running: z.boolean(),
-  cleanupJob: z.object({
-    running: z.boolean(),
-    schedule: z.string(),
-  }),
-  tempCleanupJob: z.object({
-    running: z.boolean(),
-    schedule: z.string(),
-  }),
+  completedJobsJob: z.object({ running: z.boolean(), schedule: z.string() }),
+  expiredFilesJob: z.object({ running: z.boolean(), schedule: z.string() }),
+  tempCleanupJob: z.object({ running: z.boolean(), schedule: z.string() }),
   lastSettingsCheck: z.string().optional(),
   controlServerRunning: z.boolean(),
 });
@@ -38,23 +33,39 @@ export const cronRouter = router({
 
       const cronData = status.cron || {};
       const isRunning =
-        cronData.cleanupJob?.running ||
-        false ||
-        cronData.tempCleanupJob?.running ||
-        false;
+        !!cronData.cleanupJob?.running || !!cronData.tempCleanupJob?.running;
+
+      const cleanupJob = cronData.cleanupJob || undefined;
+
+      const completedSchedule =
+        cleanupJob?.schedule ||
+        SETTINGS.completedJobsCleanupSchedule ||
+        "unknown";
+      const expiredSchedule =
+        SETTINGS.expiredFilesCleanupSchedule ||
+        cleanupJob?.schedule ||
+        "unknown";
+      const tempSchedule =
+        cronData.tempCleanupJob?.schedule ||
+        SETTINGS.tempCleanupSchedule ||
+        "unknown";
 
       return {
         enabled: SETTINGS.cronEnabled || false,
         running: isRunning,
-        cleanupJob: cronData.cleanupJob || {
-          running: false,
-          schedule: "unknown",
+        completedJobsJob: {
+          running: !!cleanupJob?.running,
+          schedule: completedSchedule,
+        },
+        expiredFilesJob: {
+          running: !!cleanupJob?.running,
+          schedule: expiredSchedule,
         },
         tempCleanupJob: cronData.tempCleanupJob || {
           running: false,
-          schedule: "unknown",
+          schedule: tempSchedule,
         },
-        lastSettingsCheck: cronData.lastSettingsCheck,
+        lastSettingsCheck: cronData.settingsWatcher?.interval,
         controlServerRunning: true,
       };
     } catch (error) {
@@ -62,8 +73,18 @@ export const cronRouter = router({
       return {
         enabled: SETTINGS.cronEnabled || false,
         running: false,
-        cleanupJob: { running: false, schedule: "unknown" },
-        tempCleanupJob: { running: false, schedule: "unknown" },
+        completedJobsJob: {
+          running: false,
+          schedule: SETTINGS.completedJobsCleanupSchedule || "unknown",
+        },
+        expiredFilesJob: {
+          running: false,
+          schedule: SETTINGS.expiredFilesCleanupSchedule || "unknown",
+        },
+        tempCleanupJob: {
+          running: false,
+          schedule: SETTINGS.tempCleanupSchedule || "unknown",
+        },
         controlServerRunning: false,
       };
     }

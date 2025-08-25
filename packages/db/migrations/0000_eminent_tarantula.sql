@@ -26,6 +26,7 @@ CREATE TABLE `files` (
 	`user_id` text NOT NULL,
 	`created_at` integer,
 	`updated_at` integer,
+	`expires_at` integer,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -70,7 +71,8 @@ CREATE TABLE `settings` (
 	`chunk_size` integer DEFAULT 26214400 NOT NULL,
 	`max_file_size` integer DEFAULT 104857600 NOT NULL,
 	`blacklisted_extensions` text,
-	`job_cleanup_schedule` text DEFAULT '0 2 * * *',
+	`expired_files_cleanup_schedule` text DEFAULT '0 2 * * *',
+	`completed_jobs_cleanup_schedule` text DEFAULT '0 3 * * *',
 	`temp_cleanup_schedule` text DEFAULT '*/30 * * * *',
 	`cron_enabled` integer DEFAULT true NOT NULL,
 	`cron_log_level` text DEFAULT 'info',

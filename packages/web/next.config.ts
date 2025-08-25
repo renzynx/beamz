@@ -17,15 +17,22 @@ const nextConfig: NextConfig = {
         destination: "/dashboard",
         permanent: true,
       },
+      {
+        source: "/f/:slug*",
+        destination: "/api/f/:slug*",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: "http://localhost:3333/api/:path*",
-      },
-    ];
+    return process.env.NODE_ENV === "development"
+      ? [
+          {
+            source: "/api/:path*",
+            destination: "http://localhost:3333/api/:path*",
+          },
+        ]
+      : [];
   },
 };
 

@@ -58,7 +58,6 @@ export const jobsRouter = router({
 
       const total = totalRes[0]?.total ?? 0;
 
-      // Single query for rows applying where, orderBy, limit and offset
       const rows = await db
         .select({
           id: jobs.id,
@@ -130,7 +129,6 @@ export const jobsRouter = router({
       }
     }),
 
-  // New mutation to allow bulk deletion of arbitrary job IDs from the admin UI
   bulkDelete: adminProcedure
     .input(z.object({ jobIds: z.array(z.string()).min(1) }))
     .mutation(async ({ input }) => {

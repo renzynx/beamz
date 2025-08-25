@@ -12,6 +12,9 @@ import {
 } from "./constants";
 import type { FileMetadata } from "./types";
 import * as ffmpeg from "@ffmpeg-installer/ffmpeg";
+import { Logger } from "./logger";
+
+const logger = new Logger();
 
 const ffmpegPath = ffmpeg.path;
 
@@ -301,7 +304,7 @@ export async function generateThumbnail(
           }
         }
       } catch (error) {
-        console.log(
+        logger.warn(
           `Album cover extraction failed, falling back to waveform: ${error}`
         );
         albumCoverExtracted = false;
@@ -336,7 +339,7 @@ export async function generateThumbnail(
         await fs.unlink(previewPath).catch(() => {});
       }
     } catch (cleanupError) {
-      console.error("Failed to clean up thumbnail files:", cleanupError);
+      logger.error("Failed to clean up thumbnail files:", cleanupError);
     }
 
     throw new Error(`Failed to generate thumbnail: ${error}`);
@@ -354,42 +357,7 @@ export async function deleteThumbnails(actualFilename: string): Promise<void> {
       fs.unlink(previewPath),
     ]);
   } catch (error) {
-    console.error("Failed to delete thumbnail files:", error);
-  }
-}
-
-export async function cleanupOrphanedTempFiles(): Promise<void> {
-  try {
-    const tempFiles = await fs.readdir(TEMP_DIR);
-    // Look for any temp files that might be left behind (excluding part files)
-    const tempCoverFiles = tempFiles.filter(
-      (file) => file.includes("_temp_") && !file.endsWith(".part")
-    );
-
-    if (tempCoverFiles.length === 0) {
-      return;
-    }
-
-    console.log(
-      `Found ${tempCoverFiles.length} orphaned temp files, cleaning up...`
-    );
-
-    const deletePromises = tempCoverFiles.map(async (file) => {
-      const filePath = join(TEMP_DIR, file);
-      try {
-        await fs.unlink(filePath);
-        console.log(`Cleaned up orphaned temp file: ${file}`);
-      } catch (error) {
-        console.warn(`Failed to cleanup orphaned temp file ${file}:`, error);
-      }
-    });
-
-    await Promise.allSettled(deletePromises);
-    console.log(
-      `Completed cleanup of ${tempCoverFiles.length} orphaned temp files`
-    );
-  } catch (error) {
-    console.error("Failed to cleanup orphaned temp files:", error);
+    logger.error("Failed to delete thumbnail files:", error);
   }
 }
 
