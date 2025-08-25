@@ -20,14 +20,12 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    return process.env.NODE_ENV !== "production"
-      ? [
-          {
-            source: "/api/:path*",
-            destination: "http://localhost:3333/api/:path*",
-          },
-        ]
-      : [];
+    return [
+      {
+        source: "/api/:path*",
+        destination: "http://localhost:3333/api/:path*",
+      },
+    ];
   },
 };
 

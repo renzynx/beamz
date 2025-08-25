@@ -1,6 +1,6 @@
 import path from "path";
 
-export const BASE_URL = process.env.BASE_URL || "http://localhost:3333";
+export const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 export const SECRET = process.env.SECRET;
 export const UPLOAD_DIR = path.resolve(process.cwd(), "..", "..", "uploads");
 export const TEMP_DIR = path.resolve(UPLOAD_DIR, "tmp");

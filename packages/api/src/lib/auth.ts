@@ -9,13 +9,13 @@ import { generateUserAvatar } from "./utils";
 
 export const auth = betterAuth({
   secret: SECRET,
+  baseURL: process.env.BASE_URL,
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
   telemetry: { enabled: false },
   emailAndPassword: { enabled: true },
   appName: "Beam",
   advanced: {
     cookiePrefix: "beam",
-    trustedOrigins: ["http://localhost:3333", "http://localhost:3000"],
   },
   plugins: [admin()],
   databaseHooks: {
