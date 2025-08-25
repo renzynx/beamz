@@ -1,5 +1,7 @@
 # Beamz
 
+[Preview](#preview)
+
 Deployment guide — preferred: Docker Compose. Also includes manual deployment steps for advanced users.
 
 ## Overview
@@ -182,6 +184,13 @@ Important:
 - `docker-compose.yml` — recommended compose file (uses `caddy` as proxy)
 - `config/Caddyfile` — Caddy reverse proxy example
 - `config/docker-compose.*.yml` — other proxy examples (traefik, nginx, apache, haproxy, envoy)
+
+## Preview
+
+<p align="center">
+  <img src="previews/preview-0.png" alt="Preview 0" width="480" />
+  <img src="previews/preview-1.png" alt="Preview 1" width="480" />
+</p>
 
 ---
 

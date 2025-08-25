@@ -4,8 +4,14 @@ on:
   push:
     branches: [main, master]
     tags: ["v*"]
+    paths:
+      - "packages/**"
+      - "Dockerfile"
   pull_request:
     branches: [main, master]
+    paths:
+      - "packages/**"
+      - "Dockerfile"
 
 env:
   REGISTRY: ghcr.io
