@@ -1,0 +1,249 @@
+name: Docker Image Optimization with SlimToolkit
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_image:
+        description: "Base image to optimize (default: latest built image)"
+        required: false
+        default: ""
+      optimization_level:
+        description: "Optimization level"
+        required: true
+        default: "standard"
+        type: choice
+        options:
+          - standard
+          - aggressive
+          - conservative
+      include_debug:
+        description: "Include debugging tools"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Pull or build base image
+        run: |
+          if [ -n "${{ github.event.inputs.base_image }}" ]; then
+            echo "Using provided base image: ${{ github.event.inputs.base_image }}"
+            docker pull "${{ github.event.inputs.base_image }}"
+            docker tag "${{ github.event.inputs.base_image }}" beam:target
+          else
+            echo "Building image from Dockerfile"
+            docker buildx build --load -t beam:target .
+          fi
+
+      - name: Install SlimToolkit
+        run: |
+          curl -sL https://raw.githubusercontent.com/slimtoolkit/slim/master/scripts/install-slim.sh | sudo -E bash -
+
+      - name: Prepare optimization parameters
+        id: optimization
+        run: |
+          case "${{ github.event.inputs.optimization_level }}" in
+            "aggressive")
+              echo "params=--include-shell=false --include-workdir=false --include-cert-all=false --include-new=false --include-oslibs-net=false" >> $GITHUB_OUTPUT
+              echo "probe_timeout=60" >> $GITHUB_OUTPUT
+              ;;
+            "conservative")
+              echo "params=--include-shell --include-workdir --include-cert-all --include-new --include-oslibs-net --include-zoneinfo" >> $GITHUB_OUTPUT
+              echo "probe_timeout=120" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "params=--include-shell=false --include-workdir=false --include-cert-all --include-new --include-oslibs-net" >> $GITHUB_OUTPUT
+              echo "probe_timeout=90" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Analyze image with xray
+        run: |
+          echo "=== Analyzing original image with SlimToolkit xray ==="
+          slim xray --target beam:target --changes all > xray-report.txt
+
+          echo "=== Image Analysis Results ==="
+          head -50 xray-report.txt
+
+      - name: Optimize image with SlimToolkit
+        env:
+          DSLIM_HTTP_PROBE: false
+        run: |
+          echo "=== Starting SlimToolkit optimization ==="
+
+          # Base optimization command
+          SLIM_CMD="slim build"
+          SLIM_CMD="$SLIM_CMD --target beam:target"
+          SLIM_CMD="$SLIM_CMD --tag beam:optimized"
+          SLIM_CMD="$SLIM_CMD --http-probe=false"
+          SLIM_CMD="$SLIM_CMD --continue-after=timeout:${{ steps.optimization.outputs.probe_timeout }}"
+
+          # Add optimization parameters
+          SLIM_CMD="$SLIM_CMD ${{ steps.optimization.outputs.params }}"
+
+          # Essential paths for our application
+          SLIM_CMD="$SLIM_CMD --include-path=/app/uploads"
+          SLIM_CMD="$SLIM_CMD --include-path=/app/data" 
+          SLIM_CMD="$SLIM_CMD --include-path=/app/start.sh"
+
+          # Include all package directories and binaries
+          SLIM_CMD="$SLIM_CMD --include-path=/app/packages/db"
+          SLIM_CMD="$SLIM_CMD --include-path=/app/packages/api"
+          SLIM_CMD="$SLIM_CMD --include-path=/app/packages/web"
+          SLIM_CMD="$SLIM_CMD --include-path=/app/packages/background-jobs"
+
+          # Include compiled binaries specifically
+          SLIM_CMD="$SLIM_CMD --include-bin=/app/packages/api/server"
+          SLIM_CMD="$SLIM_CMD --include-bin=/app/packages/background-jobs/background-jobs"          # System dependencies
+          SLIM_CMD="$SLIM_CMD --include-bin=/usr/bin/ffmpeg"
+
+          # Runtime executable
+          SLIM_CMD="$SLIM_CMD --include-exe=bun"
+
+          # Debug tools if requested
+          if [ "${{ github.event.inputs.include_debug }}" = "true" ]; then
+            SLIM_CMD="$SLIM_CMD --include-shell"
+            SLIM_CMD="$SLIM_CMD --include-exe=curl"
+            SLIM_CMD="$SLIM_CMD --include-exe=ps"
+            SLIM_CMD="$SLIM_CMD --include-exe=top"
+            SLIM_CMD="$SLIM_CMD --include-exe=netstat"
+          fi
+
+          # Show build logs and container logs
+          SLIM_CMD="$SLIM_CMD --show-blogs --show-clogs"
+
+          echo "Executing: $SLIM_CMD"
+          eval $SLIM_CMD
+
+      - name: Generate optimization report
+        run: |
+          echo "=== Image Optimization Results ==="
+
+          # Get image sizes
+          ORIGINAL_SIZE_BYTES=$(docker image inspect beam:target --format='{{.Size}}')
+          OPTIMIZED_SIZE_BYTES=$(docker image inspect beam:optimized --format='{{.Size}}')
+
+          # Calculate reduction
+          REDUCTION_RATIO=$(echo "scale=2; $ORIGINAL_SIZE_BYTES / $OPTIMIZED_SIZE_BYTES" | bc)
+          SPACE_SAVED_BYTES=$((ORIGINAL_SIZE_BYTES - OPTIMIZED_SIZE_BYTES))
+          SPACE_SAVED_MB=$((SPACE_SAVED_BYTES / 1024 / 1024))
+
+          echo "Original Size: $(numfmt --to=iec $ORIGINAL_SIZE_BYTES)"
+          echo "Optimized Size: $(numfmt --to=iec $OPTIMIZED_SIZE_BYTES)"
+          echo "Space Saved: ${SPACE_SAVED_MB}MB"
+          echo "Reduction Ratio: ${REDUCTION_RATIO}x"
+
+          # Create summary
+          cat > optimization-summary.md << EOF
+          # 🚀 Docker Image Optimization Results
+
+          ## Size Comparison
+          - **Original Size**: $(numfmt --to=iec $ORIGINAL_SIZE_BYTES)
+          - **Optimized Size**: $(numfmt --to=iec $OPTIMIZED_SIZE_BYTES)
+          - **Space Saved**: ${SPACE_SAVED_MB}MB
+          - **Reduction Ratio**: ${REDUCTION_RATIO}x
+
+          ## Optimization Level
+          - **Level**: ${{ github.event.inputs.optimization_level }}
+          - **Debug Tools**: ${{ github.event.inputs.include_debug }}
+
+          ## Image Details
+          \`\`\`
+          $(docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" | grep -E "(beam|SIZE)")
+          \`\`\`
+
+          ## SlimToolkit Report
+          $(if [ -f "slim.report.json" ]; then cat slim.report.json | jq -r '.stats // "Report not available"'; else echo "Report file not found"; fi)
+          EOF
+
+      - name: Test optimized image
+        run: |
+          echo "=== Testing optimized image ==="
+
+          # Start the optimized container
+          docker run -d --name beam-test beam:optimized
+
+          # Wait a moment for startup
+          sleep 10
+
+          # Check if container is running
+          if docker ps | grep beam-test; then
+            echo "✅ Optimized image runs successfully"
+            docker logs beam-test
+          else
+            echo "❌ Optimized image failed to start"
+            docker logs beam-test
+            exit 1
+          fi
+
+          # Cleanup
+          docker stop beam-test || true
+          docker rm beam-test || true
+
+      - name: Tag and push optimized image
+        run: |
+          # Tag with optimization info
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          OPTIMIZATION_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:optimized-${{ github.event.inputs.optimization_level }}-${TIMESTAMP}"
+          LATEST_OPTIMIZED_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:optimized-latest"
+
+          docker tag beam:optimized "$OPTIMIZATION_TAG"
+          docker tag beam:optimized "$LATEST_OPTIMIZED_TAG"
+
+          echo "Pushing optimized images..."
+          docker push "$OPTIMIZATION_TAG"
+          docker push "$LATEST_OPTIMIZED_TAG"
+
+          echo "✅ Published optimized images:"
+          echo "- $OPTIMIZATION_TAG"
+          echo "- $LATEST_OPTIMIZED_TAG"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimization-artifacts-${{ github.run_number }}
+          path: |
+            slim.report.json
+            xray-report.txt
+            optimization-summary.md
+            .images/*/artifacts/
+          retention-days: 30
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('optimization-summary.md')) {
+              const summary = fs.readFileSync('optimization-summary.md', 'utf8');
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: summary
+              });
+            }

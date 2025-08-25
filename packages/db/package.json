@@ -1,0 +1,25 @@
+{
+  "name": "@beam/db",
+  "version": "1.0.0",
+  "description": "Beam database configuration and schema",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "bun build migrate.ts --outdir dist --target bun --minify",
+    "db:gen": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "bun migrate.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.3.3",
+    "@libsql/client": "^0.15.10"
+  },
+  "author": "renzynx",
+  "license": "MIT"
+}

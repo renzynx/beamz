@@ -1,0 +1,171 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, master]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+
+      - name: Build Docker image (fat)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          push: false
+          tags: beam:fat
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install SlimToolkit
+        run: |
+          curl -sL https://raw.githubusercontent.com/slimtoolkit/slim/master/scripts/install-slim.sh | sudo -E bash -
+
+      - name: Optimize image with SlimToolkit
+        env:
+          DSLIM_HTTP_PROBE: false
+          DSLIM_CONTINUE_AFTER: timeout:30
+        run: |
+          # Run SlimToolkit to optimize the image
+          slim build \
+            --target beam:fat \
+            --tag beam:slim \
+            --http-probe=false \
+            --continue-after=timeout:30 \
+            --include-path=/app/uploads \
+            --include-path=/app/data \
+            --include-path=/app/start.sh \
+            --include-path=/app/packages/db/dist \
+            --include-path=/app/packages/db/migrations \
+            --include-path=/app/packages/api/dist \
+            --include-path=/app/packages/background-jobs/dist \
+            --include-path=/app/packages/web/.next/standalone/packages/web \
+            --include-path=/app/node_modules/@ffmpeg-installer \
+            --include-exe=bun \
+            --show-clogs
+
+      - name: Tag optimized image
+        run: |
+          # Get the original and optimized sizes
+          ORIGINAL_SIZE=$(docker images beam:fat --format "{{.Size}}")
+          SLIM_SIZE=$(docker images beam:slim --format "{{.Size}}")
+
+          echo "=== Optimization Results ==="
+          echo "🔥 Original image size: $ORIGINAL_SIZE"
+          echo "✨ Optimized image size: $SLIM_SIZE"
+
+          # Calculate approximate reduction (simple calculation)
+          if [[ "$ORIGINAL_SIZE" == *"MB"* ]] && [[ "$SLIM_SIZE" == *"MB"* ]]; then
+            ORIGINAL_NUM=$(echo $ORIGINAL_SIZE | sed 's/MB//')
+            SLIM_NUM=$(echo $SLIM_SIZE | sed 's/MB//')
+            if command -v bc >/dev/null 2>&1; then
+              REDUCTION=$(echo "scale=1; $ORIGINAL_NUM / $SLIM_NUM" | bc)
+              echo "🚀 Size reduction: ${REDUCTION}x smaller!"
+              SPACE_SAVED=$(echo "scale=1; $ORIGINAL_NUM - $SLIM_NUM" | bc)
+              echo "💾 Space saved: ${SPACE_SAVED}MB"
+            fi
+          fi
+
+          # Tag the slim image as latest
+          echo "Tagging optimized image as latest..."
+          docker tag beam:slim ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Show image comparison
+        run: |
+          echo "=== Image Size Comparison ==="
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "(beam|ghcr.io)"
+
+          echo ""
+          echo "=== SlimToolkit Optimization Report ==="
+          # If there's a slim report, show it
+          if [ -f "slim.report.json" ]; then
+            echo "Optimization completed successfully!"
+            # Try to extract key stats from the report
+            if command -v jq >/dev/null 2>&1; then
+              echo "Extracting optimization statistics..."
+              # Try different paths for the stats
+              jq -r 'if .state.image_build.stats then .state.image_build.stats | "Original Size: \(.source_image.size_human // "N/A"), Optimized Size: \(.minified_image.size_human // "N/A"), Reduction: \(.size_reduction // "N/A")x" elif .stats then .stats | "Original Size: \(.source_image.size_human // "N/A"), Optimized Size: \(.minified_image.size_human // "N/A"), Reduction: \(.size_reduction // "N/A")x" else "Stats format not recognized - showing available keys: " + (keys | join(", ")) end' slim.report.json || echo "Could not parse optimization stats"
+            else
+              echo "jq not available, showing raw report size..."
+              echo "Report file size: $(wc -c < slim.report.json) bytes"
+            fi
+          else
+            echo "No slim.report.json found"
+          fi
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        run: |
+          # Push the latest tagged image
+          echo "Pushing ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Upload SlimToolkit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slimtoolkit-artifacts
+          path: |
+            slim.report.json
+            .images/*/artifacts/
+          retention-days: 7
+
+  security-scan:
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+
+    steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"

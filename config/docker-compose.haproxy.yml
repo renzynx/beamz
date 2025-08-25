@@ -1,0 +1,31 @@
+services:
+  haproxy:
+    image: haproxy:2.8-alpine
+    container_name: haproxy
+    ports:
+      - "3333:3333"
+      - "8404:8404" # HAProxy stats page
+    volumes:
+      - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - beamz
+    networks:
+      - beamz-network
+
+  beamz:
+    image: ghcr.io/renzynx/beamz
+    container_name: beamz
+    environment:
+      - NODE_ENV=production
+      # DO NOT change this environment variable
+      - BASE_URL=http://localhost:3333
+      - SECRET=32-characters-random-string-for-secret
+    volumes:
+      - ./uploads:/app/uploads
+      - ./data:/app/data
+    networks:
+      - beamz-network
+
+networks:
+  beamz-network:
+    driver: bridge

@@ -1,0 +1,17 @@
+:3333 {
+	# Handle API routes - preserve the /api path
+	handle /api/* {
+		reverse_proxy beamz:3333
+	}
+
+	# Handle all other routes (web application)
+	handle {
+		reverse_proxy beamz:3000
+	}
+
+	# Enable logging for debugging
+	log {
+		output stdout
+		format console
+	}
+}
