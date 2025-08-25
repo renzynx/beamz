@@ -10,6 +10,7 @@ import { generateUserAvatar } from "./utils";
 export const auth = betterAuth({
   secret: SECRET,
   baseURL: process.env.BASE_URL,
+  trustedOrigins: ["*"],
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
   telemetry: { enabled: false },
   emailAndPassword: { enabled: true },
