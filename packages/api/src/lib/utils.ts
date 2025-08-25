@@ -16,7 +16,9 @@ export function getStoredName(
   variant?: string
 ): string {
   const ext = getFileExtension(originalFilename);
-  return variant ? `${slug}_${variant}${ext}` : `${slug}${ext}`;
+  return variant
+    ? `${slug}_${variant}.${variant === "thumbnail" ? "webp" : "webm"}`
+    : `${slug}${ext}`;
 }
 
 export function getFileExtension(filename: string): string {
