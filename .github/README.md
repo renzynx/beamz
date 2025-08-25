@@ -25,7 +25,7 @@ This is the simplest and recommended way to deploy locally or on a server that s
 
    ```sh
    git clone https://github.com/renzynx/beamz
-   cd beam
+   cd beamz
    ```
 
 2. Configure (optional):
