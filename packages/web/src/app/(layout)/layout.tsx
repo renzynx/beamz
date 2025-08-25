@@ -39,30 +39,30 @@ export default async function DashboardLayout({
     <SidebarProvider>
       <HydrateClient>
         <AppSidebar>{sidebar}</AppSidebar>
-      </HydrateClient>
-      <SidebarInset>
-        <header className="flex flex-wrap gap-3 py-4 px-4 md:px-6 lg:px-8 @container shrink-0 items-center transition-all ease-linear border-b">
-          <div className="flex flex-1 items-center gap-2">
-            <SidebarTrigger className="-ms-1" />
-          </div>
+        <SidebarInset>
+          <header className="flex flex-wrap gap-3 py-4 px-4 md:px-6 lg:px-8 @container shrink-0 items-center transition-all ease-linear border-b">
+            <div className="flex flex-1 items-center gap-2">
+              <SidebarTrigger className="-ms-1" />
+            </div>
 
-          <div className="flex items-center gap-2">
-            <ModeToggle />
-            <UserButton
-              size="icon"
-              additionalLinks={[
-                {
-                  href: "/dashboard",
-                  label: "Dashboard",
-                  icon: <LayoutDashboard />,
-                  signedIn: true,
-                },
-              ]}
-            />
-          </div>
-        </header>
-        <div className="p-4 md:p-6 lg:p-8 @container">{children}</div>
-      </SidebarInset>
+            <div className="flex items-center gap-2">
+              <ModeToggle />
+              <UserButton
+                size="icon"
+                additionalLinks={[
+                  {
+                    href: "/dashboard",
+                    label: "Dashboard",
+                    icon: <LayoutDashboard />,
+                    signedIn: true,
+                  },
+                ]}
+              />
+            </div>
+          </header>
+          <div className="p-4 md:p-6 lg:p-8 @container">{children}</div>
+        </SidebarInset>
+      </HydrateClient>
     </SidebarProvider>
   );
 }

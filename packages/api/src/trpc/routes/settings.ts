@@ -4,13 +4,13 @@ import { db, settings, eq } from "@beam/db";
 import { SETTINGS } from "@/lib/settings";
 import SuperJSON from "superjson";
 
-const settingSchema = z.object({
+const dbSettingSchema = z.object({
   appName: z.string().min(1),
+  cdnUrl: z.string().min(1).nullable(),
   enableSignUp: z.boolean(),
   chunkSize: z.number().int().min(1024),
   maxFileSize: z.number().int().min(1024),
-  blackListedExtensions: z.array(z.string()).optional().nullable(),
-  // Cron settings - updated for per-task schedules
+  blackListedExtensions: z.string().optional().nullable(),
   completedJobsCleanupSchedule: z.string().optional().nullable(),
   expiredFilesCleanupSchedule: z.string().optional().nullable(),
   tempCleanupSchedule: z.string().optional().nullable(),
@@ -19,23 +19,29 @@ const settingSchema = z.object({
   cronTimezone: z.string().optional().nullable(),
 });
 
-const settingInputSchema = z.object({
-  appName: z.string().min(1).optional(),
-  enableSignUp: z.boolean().optional(),
-  chunkSize: z.number().int().min(1024).optional(),
-  maxFileSize: z.number().int().min(1024).optional(),
+const settingSchema = dbSettingSchema.extend({
+  blackListedExtensions: z
+    .union([z.string(), z.array(z.string()), z.null(), z.undefined()])
+    .transform((val) => {
+      if (typeof val === "string") {
+        try {
+          return SuperJSON.parse(val);
+        } catch {
+          return [] as string[];
+        }
+      }
+      if (Array.isArray(val)) return val;
+      return [] as string[];
+    }),
+});
+
+const settingInputSchema = dbSettingSchema.partial().extend({
   blackListedExtensions: z
     .array(z.string())
     .optional()
-    .nullable()
-    .transform((val) => SuperJSON.stringify(val || [])),
-  completedJobsCleanupSchedule: z.string().optional(),
-  expiredFilesCleanupSchedule: z.string().optional(),
-  tempCleanupSchedule: z.string().optional(),
-  cronEnabled: z.boolean().optional(),
-  cronLogLevel: z.string().optional(),
-  cronTimezone: z.string().optional(),
-  cronSecret: z.string().optional(),
+    .transform((val) =>
+      val === undefined ? undefined : SuperJSON.stringify(val)
+    ),
 });
 
 export const settingsRouter = router({
@@ -47,19 +53,19 @@ export const settingsRouter = router({
         chunkSize: true,
         maxFileSize: true,
         blackListedExtensions: true,
+        cdnUrl: true,
       })
     )
-    .query(() => {
-      return {
-        appName: SETTINGS.appName,
-        enableSignUp: SETTINGS.enableSignUp,
-        chunkSize: SETTINGS.chunkSize,
-        maxFileSize: SETTINGS.maxFileSize,
-        blackListedExtensions: SETTINGS.blackListedExtensions
-          ? SuperJSON.parse(SETTINGS.blackListedExtensions)
-          : [],
-      };
-    }),
+    .query(() => ({
+      appName: SETTINGS.appName,
+      enableSignUp: SETTINGS.enableSignUp,
+      chunkSize: SETTINGS.chunkSize,
+      maxFileSize: SETTINGS.maxFileSize,
+      cdnUrl: SETTINGS.cdnUrl,
+      blackListedExtensions: SETTINGS.blackListedExtensions
+        ? SuperJSON.parse(SETTINGS.blackListedExtensions)
+        : [],
+    })),
   get: adminProcedure.output(settingSchema).query(() => ({
     ...SETTINGS,
     blackListedExtensions: SETTINGS.blackListedExtensions

@@ -22,7 +22,8 @@ const FilesGrid = dynamic(() =>
 );
 
 export function FilesView({ view }: { view: string }) {
-  const { pagination, sortBy, sortDir, selectedFiles } = useFilesContext();
+  const { pagination, sortBy, sortDir, selectedFiles, previewFile } =
+    useFilesContext();
 
   const trpc = useTRPC();
 
@@ -38,9 +39,14 @@ export function FilesView({ view }: { view: string }) {
     })
   );
 
+  const selectedFileItems = data.filter((f) => selectedFiles.has(f.id));
+
   return (
     <>
-      <ActionBar selectedCount={selectedFiles.size} />
+      <ActionBar
+        selectedCount={selectedFiles.size}
+        selectedItems={selectedFileItems}
+      />
       <div className="space-y-4">
         <FileHeader view={view} refetch={refetch} />
 
@@ -57,7 +63,7 @@ export function FilesView({ view }: { view: string }) {
         {total > 0 && <FilesPagination total={total} />}
 
         <FilePropertiesDialog />
-        <FilePreviewDialog />
+        {previewFile && <FilePreviewDialog />}
         <DeleteConfirmationDialog />
       </div>
     </>

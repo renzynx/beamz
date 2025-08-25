@@ -19,6 +19,7 @@ import {
 } from "@/lib/metadata";
 import {
   PlayCircle,
+  Play,
   Music,
   FileText,
   Folder,
@@ -27,9 +28,12 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import type { FileItem } from "@/trpc/types";
-import { useFilesContext } from "../../contexts/FilesContext";
+import { useFilesContext } from "@/contexts/FilesContext";
+import { useTRPC } from "@/trpc/client";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { prefixWithCdn } from "@/features/dashboard/lib/utils";
 
 interface FileCardProps {
   file: FileItem;
@@ -51,13 +55,18 @@ export function FileCard({
     regenerateThumbnail,
     showDeleteConfirmation,
     showProperties,
+    showPreview,
     isRegeneratingThumbnail,
   } = useFilesContext();
 
-  // Parse metadata once and memoize it
   const metadata = useMemo(
     () => parseFileMetadata(file.metadata),
     [file.metadata]
+  );
+
+  const trpc = useTRPC();
+  const { data: settings } = useSuspenseQuery(
+    trpc.settings.public.queryOptions()
   );
 
   const isVideo = file.mimeType.startsWith("video/");
@@ -69,6 +78,13 @@ export function FileCard({
   const hasValidThumbnail = hasThumbnail(metadata);
   const hasValidPreview = hasPreview(metadata);
 
+  const thumbnailUrlPrefixed = thumbnailUrl
+    ? prefixWithCdn(thumbnailUrl, settings?.cdnUrl ?? null)
+    : thumbnailUrl;
+  const previewUrlPrefixed = previewUrl
+    ? prefixWithCdn(previewUrl, settings?.cdnUrl ?? null)
+    : previewUrl;
+
   const getFileIcon = () => {
     if (isAudio) return <Music className="w-12 h-12 text-muted-foreground" />;
     if (isVideo)
@@ -77,7 +93,6 @@ export function FileCard({
     return <Folder className="w-12 h-12 text-muted-foreground" />;
   };
 
-  // Context menu handlers with proper async handling
   const handleDownload = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     try {
@@ -114,6 +129,15 @@ export function FileCard({
     }
   };
 
+  const handlePreview = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    try {
+      showPreview(file);
+    } catch (error) {
+      console.error("Preview error:", error);
+    }
+  };
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -131,10 +155,10 @@ export function FileCard({
                 {isVideo &&
                 isHovering &&
                 hasValidPreview &&
-                previewUrl &&
+                previewUrlPrefixed &&
                 !videoError ? (
                   <video
-                    src={previewUrl}
+                    src={previewUrlPrefixed}
                     className="w-full h-full object-cover"
                     autoPlay
                     muted
@@ -144,7 +168,7 @@ export function FileCard({
                   />
                 ) : (
                   <img
-                    src={thumbnailUrl}
+                    src={thumbnailUrlPrefixed || thumbnailUrl}
                     alt={file.originalName}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                     loading="lazy"
@@ -222,6 +246,11 @@ export function FileCard({
       </ContextMenuTrigger>
 
       <ContextMenuContent className="w-56">
+        <ContextMenuItem onClick={handlePreview}>
+          <Play className="mr-2 h-4 w-4" />
+          Preview
+        </ContextMenuItem>
+
         <ContextMenuItem onClick={handleDownload}>
           <Download className="mr-2 h-4 w-4" />
           Download

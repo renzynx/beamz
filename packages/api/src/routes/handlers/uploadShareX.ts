@@ -14,6 +14,7 @@ import {
 } from "../helpers/uploadHelpers";
 import type { Context } from "hono";
 import { Hono } from "hono";
+import { SETTINGS } from "@/lib/settings";
 
 const app = new Hono();
 
@@ -164,14 +165,13 @@ app.post(
           );
         } catch (error) {
           console.error("Failed to enqueue thumbnail to cron service:", error);
-          // Don't fail the upload if enqueueing fails
         }
 
         return c.json({
           success: true,
-          fileUrl: `${process.env.BASE_URL}/f/${getStoredName(slug, file.name)}`,
+          fileUrl: `${SETTINGS.cdnUrl || process.env.BASE_URL}/f/${getStoredName(slug, file.name)}`,
           thumbnailUrl: isSupportedFileType(newFile.mimeType)
-            ? `${process.env.BASE_URL}/f/${getStoredName(slug, file.name, "thumbnail")}`
+            ? `${SETTINGS.cdnUrl || process.env.BASE_URL}/f/${getStoredName(slug, file.name, "thumbnail")}`
             : null,
         });
       } catch (error) {

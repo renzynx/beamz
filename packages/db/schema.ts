@@ -118,6 +118,7 @@ export const files = sqliteTable(
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   appName: text("app_name").notNull().default("Beam"),
+  cdnUrl: text("cdn_url"),
   enableSignUp: integer("enable_sign_up", { mode: "boolean" })
     .notNull()
     .default(true),

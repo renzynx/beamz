@@ -1,6 +1,14 @@
 "use client";
 
-import { useId, useState, useEffect } from "react";
+import { useId, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+} from "@/components/ui/form";
 import { useTRPC } from "@/trpc/client";
 import {
   useMutation,
@@ -26,11 +34,18 @@ import {
 } from "@/components/ui/tags-input";
 import { toast } from "sonner";
 import z from "zod";
-import { mapZodErrors } from "./lib/mapZodError";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 const generalSettingsSchema = z
   .object({
-    appName: z.string().min(1, { message: "App name is required" }),
+    appName: z.string().min(1, { error: "App name is required" }),
+    cdnUrl: z.preprocess(
+      (v) => {
+        if (typeof v === "string" && v.trim() === "") return undefined;
+        return v;
+      },
+      z.string().url({ error: "Invalid URL" }).optional().nullable()
+    ),
     enableSignUp: z.boolean(),
     chunkSizeMB: z.preprocess(
       (v) => Number(v),
@@ -43,7 +58,7 @@ const generalSettingsSchema = z
     blackListedExtensions: z
       .array(
         z.string().refine((ext) => ext.startsWith(".") && ext.length > 1, {
-          message: "Extensions must start with a dot (e.g., .exe, .sh, .msi)",
+          error: "Extensions must start with a dot (e.g., .exe, .sh, .msi)",
         })
       )
       .optional()
@@ -68,71 +83,83 @@ export function GeneralSettings() {
     trpc.settings.get.queryOptions()
   );
 
-  const [appName, setAppName] = useState<string>("");
-  const [enableSignUp, setEnableSignUp] = useState<boolean>(false);
-  const [chunkSizeMB, setChunkSizeMB] = useState<string>("");
-  const [maxFileSizeMB, setMaxFileSizeMB] = useState<string>("");
-  const [blackListedExtensions, setBlackListedExtensions] = useState<string[]>(
-    []
-  );
+  // Initialize react-hook-form with default values from current settings
+  const form = useForm<any>({
+    resolver: zodResolver(generalSettingsSchema),
+    defaultValues: {
+      appName: currentRaw?.appName ?? "",
+      cdnUrl: currentRaw?.cdnUrl ?? null,
+      enableSignUp: !!currentRaw?.enableSignUp,
+      chunkSizeMB:
+        typeof currentRaw?.chunkSize === "number"
+          ? String(Math.round(currentRaw.chunkSize / (1024 * 1024)))
+          : "",
+      maxFileSizeMB:
+        typeof currentRaw?.maxFileSize === "number"
+          ? String(Math.round(currentRaw.maxFileSize / (1024 * 1024)))
+          : "",
+      blackListedExtensions: (currentRaw?.blackListedExtensions as any[]) ?? [],
+    },
+  });
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors: formErrors },
+  } = form;
 
   const mutation = useMutation(trpc.settings.set.mutationOptions());
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Reset form when currentRaw updates
   useEffect(() => {
     if (!currentRaw) return;
-    setAppName(currentRaw.appName ?? "");
-    setEnableSignUp(!!currentRaw.enableSignUp);
-    setBlackListedExtensions(currentRaw.blackListedExtensions ?? []);
-
-    // Convert bytes -> MB
-    if (typeof currentRaw.chunkSize === "number") {
-      setChunkSizeMB(String(Math.round(currentRaw.chunkSize / (1024 * 1024))));
-    }
-    if (typeof currentRaw.maxFileSize === "number") {
-      setMaxFileSizeMB(
-        String(Math.round(currentRaw.maxFileSize / (1024 * 1024)))
-      );
-    }
-  }, [currentRaw]);
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const parsed = generalSettingsSchema.safeParse({
-      appName,
-      enableSignUp,
-      chunkSizeMB,
-      maxFileSizeMB,
-      blackListedExtensions,
+    reset({
+      appName: currentRaw.appName ?? "",
+      // ensure cdnUrl is null when not set so empty values are saved as null
+      cdnUrl: currentRaw.cdnUrl ?? null,
+      enableSignUp: !!currentRaw.enableSignUp,
+      chunkSizeMB:
+        typeof currentRaw?.chunkSize === "number"
+          ? String(Math.round(currentRaw.chunkSize / (1024 * 1024)))
+          : "",
+      maxFileSizeMB:
+        typeof currentRaw.maxFileSize === "number"
+          ? String(Math.round(currentRaw.maxFileSize / (1024 * 1024)))
+          : "",
+      blackListedExtensions: (currentRaw.blackListedExtensions as any[]) ?? [],
     });
+  }, [currentRaw, reset]);
 
-    if (!parsed.success) {
-      const mapped = mapZodErrors(parsed.error);
-      setErrors(mapped);
-      toast.error("Please fix validation errors before saving");
-      return;
-    }
-
-    setErrors({});
-
-    const { chunkSizeMB: chunkMB, maxFileSizeMB: maxMB } = parsed.data;
+  const onSubmit = handleSubmit(async (values) => {
+    const { chunkSizeMB: chunkMB, maxFileSizeMB: maxMB } = values as any;
 
     // Convert MB -> bytes for backend
     const chunkBytes = Math.round(chunkMB * 1024 * 1024);
     const maxBytes = Math.round(maxMB * 1024 * 1024);
 
     try {
+      // Remove any trailing slash(es) from CDN URL before sending
+      const normalizedCdn =
+        values.cdnUrl && values.cdnUrl.trim() !== ""
+          ? values.cdnUrl.replace(/\/+$/, "")
+          : null;
+
       await mutation.mutateAsync({
-        appName,
-        enableSignUp,
+        appName: values.appName,
+        cdnUrl: normalizedCdn,
+        enableSignUp: values.enableSignUp,
         chunkSize: chunkBytes,
         maxFileSize: maxBytes,
-        blackListedExtensions,
+        blackListedExtensions: values.blackListedExtensions ?? [],
       });
 
-      queryClient.invalidateQueries({
-        queryKey: trpc.settings.public.queryKey(),
+      queryClient.setQueryData(trpc.settings.public.queryKey(), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          cdnUrl: normalizedCdn,
+        };
       });
 
       toast.success("General settings saved successfully");
@@ -140,7 +167,7 @@ export function GeneralSettings() {
       console.error("Failed to save general settings", err);
       toast.error(err?.message || "Failed to save general settings");
     }
-  };
+  });
 
   return (
     <Card>
@@ -151,137 +178,238 @@ export function GeneralSettings() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-appName`}>App name</Label>
-              <Input
-                id={`${id}-appName`}
-                value={appName}
-                onChange={(e) => setAppName(e.target.value)}
-                placeholder="My app"
+        <Form {...form}>
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <FormField
+                  control={control}
+                  name="appName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor={`${id}-appName`}>App name</FormLabel>
+                      <FormControl>
+                        <Input
+                          id={`${id}-appName`}
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          placeholder="My app"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {formErrors.appName?.message && (
+                  <div className="text-sm text-destructive mt-1">
+                    {String(formErrors.appName.message)}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`${id}-chunk`}>Chunk size (MB)</Label>
+                <FormField
+                  control={control}
+                  name="chunkSizeMB"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          id={`${id}-chunk`}
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value.replace(/[^0-9]/g, "")
+                            )
+                          }
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          placeholder="5"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {formErrors.chunkSizeMB?.message && (
+                  <div className="text-sm text-destructive mt-1">
+                    {String(formErrors.chunkSizeMB.message)}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`${id}-max`}>Max file size (MB)</Label>
+                <FormField
+                  control={control}
+                  name="maxFileSizeMB"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          id={`${id}-max`}
+                          type="number"
+                          min={1}
+                          max={10240}
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value.replace(/[^0-9]/g, "")
+                            )
+                          }
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          placeholder="512"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {formErrors.maxFileSizeMB?.message && (
+                  <div className="text-sm text-destructive mt-1">
+                    {String(formErrors.maxFileSizeMB.message)}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor={`${id}-blacklisted`}>
+                  Blacklisted Extensions
+                </Label>
+                <FormField
+                  control={control}
+                  name="blackListedExtensions"
+                  render={({ field }) => {
+                    const list = field.value ?? [];
+                    return (
+                      <FormItem>
+                        <FormControl>
+                          <TagsInput
+                            value={list}
+                            onValueChange={(v) => field.onChange(v)}
+                            className="w-full"
+                          >
+                            <TagsInputList>
+                              {list.map((extension: string) => (
+                                <TagsInputItem
+                                  key={extension}
+                                  value={extension}
+                                >
+                                  {extension}
+                                </TagsInputItem>
+                              ))}
+                              <TagsInputInput
+                                id={`${id}-blacklisted`}
+                                placeholder="Add extension (e.g., .exe, .sh, .msi)..."
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" ||
+                                    e.key === " " ||
+                                    e.key === ","
+                                  ) {
+                                    e.preventDefault();
+                                    const input = e.currentTarget;
+                                    let value = input.value.trim();
+
+                                    if (value && !value.startsWith(".")) {
+                                      value = "." + value;
+                                    }
+
+                                    if (
+                                      value &&
+                                      value.length > 1 &&
+                                      !list.includes(value)
+                                    ) {
+                                      field.onChange([...list, value]);
+                                      input.value = "";
+                                    }
+                                  }
+                                }}
+                              />
+                            </TagsInputList>
+                          </TagsInput>
+                        </FormControl>
+                      </FormItem>
+                    );
+                  }}
+                />
+
+                {formErrors.blackListedExtensions?.message && (
+                  <div className="text-sm text-destructive mt-1">
+                    {String(formErrors.blackListedExtensions.message)}
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  File extensions that are not allowed to be uploaded.
+                  Extensions must start with a dot (e.g., .exe, .sh, .msi).
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`${id}-cdn`}>CDN URL</Label>
+                <FormField
+                  control={control}
+                  name="cdnUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          id={`${id}-cdn`}
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          placeholder="https://cdn.example.com"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {formErrors.cdnUrl?.message && (
+                  <div className="text-sm text-destructive mt-1">
+                    {String(formErrors.cdnUrl.message)}
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Optional CDN origin for serving uploaded files.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 py-4 border-t border-b">
+              <FormField
+                control={control}
+                name="enableSignUp"
+                render={({ field }) => (
+                  <>
+                    <Switch
+                      id={`${id}-signup`}
+                      checked={field.value}
+                      onCheckedChange={(v) => field.onChange(!!v)}
+                    />
+                    <Label htmlFor={`${id}-signup`}>Enable sign up</Label>
+                  </>
+                )}
               />
-              {errors.appName && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.appName}
-                </div>
-              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-chunk`}>Chunk size (MB)</Label>
-              <Input
-                id={`${id}-chunk`}
-                type="number"
-                min={1}
-                max={100}
-                value={chunkSizeMB}
-                onChange={(e) =>
-                  setChunkSizeMB(e.target.value.replace(/[^0-9]/g, ""))
-                }
-                placeholder="5"
-              />
-              {errors.chunkSizeMB && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.chunkSizeMB}
-                </div>
-              )}
+            <div className="flex justify-end">
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? "Saving..." : "Save General Settings"}
+              </Button>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-max`}>Max file size (MB)</Label>
-              <Input
-                id={`${id}-max`}
-                type="number"
-                min={1}
-                max={10240}
-                value={maxFileSizeMB}
-                onChange={(e) =>
-                  setMaxFileSizeMB(e.target.value.replace(/[^0-9]/g, ""))
-                }
-                placeholder="512"
-              />
-              {errors.maxFileSizeMB && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.maxFileSizeMB}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-blacklisted`}>
-                Blacklisted Extensions
-              </Label>
-              <TagsInput
-                value={blackListedExtensions}
-                onValueChange={setBlackListedExtensions}
-                className="w-full"
-              >
-                <TagsInputList>
-                  {blackListedExtensions.map((extension) => (
-                    <TagsInputItem key={extension} value={extension}>
-                      {extension}
-                    </TagsInputItem>
-                  ))}
-                  <TagsInputInput
-                    id={`${id}-blacklisted`}
-                    placeholder="Add extension (e.g., .exe, .sh, .msi)..."
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " " || e.key === ",") {
-                        e.preventDefault();
-                        const input = e.currentTarget;
-                        let value = input.value.trim();
-
-                        if (value && !value.startsWith(".")) {
-                          value = "." + value;
-                        }
-
-                        if (
-                          value &&
-                          value.length > 1 &&
-                          !blackListedExtensions.includes(value)
-                        ) {
-                          setBlackListedExtensions([
-                            ...blackListedExtensions,
-                            value,
-                          ]);
-                          input.value = "";
-                        }
-                      }
-                    }}
-                  />
-                </TagsInputList>
-              </TagsInput>
-
-              {errors.blackListedExtensions && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.blackListedExtensions}
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                File extensions that are not allowed to be uploaded. Extensions
-                must start with a dot (e.g., .exe, .sh, .msi).
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 py-4 border-t border-b">
-            <Switch
-              id={`${id}-signup`}
-              checked={enableSignUp}
-              onCheckedChange={(v) => setEnableSignUp(!!v)}
-            />
-            <Label htmlFor={`${id}-signup`}>Enable sign up</Label>
-          </div>
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Saving..." : "Save General Settings"}
-            </Button>
-          </div>
-        </form>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );

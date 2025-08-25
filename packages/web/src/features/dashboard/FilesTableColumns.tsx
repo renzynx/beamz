@@ -32,6 +32,9 @@ import {
 } from "lucide-react";
 import { useFilesContext } from "@/contexts/FilesContext";
 import { ButtonWithTooltip } from "@/components/ButtonWithTooltip";
+import { useTRPC } from "@/trpc/client";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { prefixWithCdn } from "@/features/dashboard/lib/utils";
 
 export const columns: ColumnDef<FileItem>[] = [
   {
@@ -42,6 +45,16 @@ export const columns: ColumnDef<FileItem>[] = [
       const metadata = parseFileMetadata(file.metadata);
       const thumbnailUrl = getThumbnailUrl(metadata);
       const hasValidThumbnail = hasThumbnail(metadata);
+
+      // Fetch settings (suspense) to get CDN URL for prefixing thumbnails
+      const trpc = useTRPC();
+      const { data: settings } = useSuspenseQuery(
+        trpc.settings.public.queryOptions()
+      );
+
+      const thumbnailUrlPrefixed = thumbnailUrl
+        ? prefixWithCdn(thumbnailUrl, settings?.cdnUrl ?? null)
+        : thumbnailUrl;
 
       const isVideo = file.mimeType.startsWith("video/");
       const isAudio = file.mimeType.startsWith("audio/");
@@ -60,7 +73,7 @@ export const columns: ColumnDef<FileItem>[] = [
         <div className="w-16 h-12 flex items-center justify-center">
           {hasValidThumbnail && thumbnailUrl ? (
             <img
-              src={thumbnailUrl}
+              src={thumbnailUrlPrefixed || thumbnailUrl}
               alt={file.originalName}
               className="w-14 h-10 object-cover rounded border"
               loading="lazy"
@@ -96,7 +109,7 @@ export const columns: ColumnDef<FileItem>[] = [
       const size = row.getValue("size") as number;
       return <div className="text-sm">{formatFileSize(size)}</div>;
     },
-    size: 120,
+    size: 80,
   },
   {
     header: "Type",
@@ -106,7 +119,7 @@ export const columns: ColumnDef<FileItem>[] = [
 
       return <Badge variant="secondary">{getFileType(mimeType)}</Badge>;
     },
-    size: 100,
+    size: 80,
   },
   {
     header: "Uploaded",
@@ -125,7 +138,7 @@ export const columns: ColumnDef<FileItem>[] = [
         </Tooltip>
       );
     },
-    size: 80,
+    size: 120,
   },
   {
     id: "actions",
@@ -218,7 +231,7 @@ export const columns: ColumnDef<FileItem>[] = [
         </TooltipProvider>
       );
     },
-    size: 160,
+    size: 180,
     enableSorting: false,
   },
 ];

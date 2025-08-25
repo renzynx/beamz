@@ -17,10 +17,49 @@ import {
   hasThumbnail,
 } from "@/lib/metadata";
 import { formatFileSize } from "@/lib/utils";
-import { Download, X } from "lucide-react";
+import { Download, Copy } from "lucide-react";
+import { useTRPC } from "@/trpc/client";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
+import { toast } from "sonner";
+import { prefixWithCdn } from "./lib/utils";
 
 export function FilePreviewDialog() {
+  const trpc = useTRPC();
+  const { data: settings } = useSuspenseQuery(
+    trpc.settings.public.queryOptions()
+  );
   const { previewFile, setPreviewFile, downloadFile } = useFilesContext();
+
+  // Hooks must be declared unconditionally and in the same order on every render.
+  const [isCopying, setIsCopying] = useState(false);
+  const handleCopy = useCallback(async () => {
+    if (!previewFile) {
+      toast.error("No file URL available to copy");
+      return;
+    }
+
+    const originalFileUrl = prefixWithCdn(
+      `/api/f/${previewFile.key}.${previewFile.originalName.split(".").pop()}`,
+      settings?.cdnUrl
+    );
+
+    if (!originalFileUrl) {
+      toast.error("No file URL available to copy");
+      return;
+    }
+
+    try {
+      setIsCopying(true);
+      await navigator.clipboard.writeText(originalFileUrl);
+      toast.success("Link copied to clipboard");
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+      toast.error("Failed to copy link");
+    } finally {
+      setIsCopying(false);
+    }
+  }, [previewFile, settings]);
 
   const isOpen = !!previewFile;
 
@@ -38,6 +77,13 @@ export function FilePreviewDialog() {
   const canPreview = hasPreview(metadata);
   const canShowThumbnail = hasThumbnail(metadata);
 
+  const finalPreviewUrl = prefixWithCdn(previewUrl!, settings?.cdnUrl);
+  const finalThumbnailUrl = prefixWithCdn(thumbnailUrl!, settings?.cdnUrl);
+  const originalFileUrl = prefixWithCdn(
+    `/api/f/${previewFile.key}.${previewFile.originalName.split(".").pop()}`,
+    settings?.cdnUrl
+  );
+
   const isImage = previewFile.mimeType.startsWith("image/");
   const isVideo = previewFile.mimeType.startsWith("video/");
   const isAudio = previewFile.mimeType.startsWith("audio/");
@@ -47,7 +93,7 @@ export function FilePreviewDialog() {
     if (isImage) {
       return (
         <img
-          src={`/api/f/${previewFile.key}.${previewFile.originalName.split(".").pop()}`}
+          src={originalFileUrl}
           alt={previewFile.originalName}
           className="max-w-full max-h-[60vh] object-contain rounded"
         />
@@ -59,7 +105,7 @@ export function FilePreviewDialog() {
       if (canPreview && previewUrl) {
         return (
           <video
-            src={previewUrl}
+            src={finalPreviewUrl}
             controls
             className="max-w-full max-h-[60vh] rounded"
             preload="metadata"
@@ -71,7 +117,7 @@ export function FilePreviewDialog() {
         return (
           <div className="flex flex-col items-center gap-4">
             <img
-              src={thumbnailUrl}
+              src={finalThumbnailUrl}
               alt={previewFile.originalName}
               className="max-w-full max-h-[40vh] object-contain rounded"
             />
@@ -88,7 +134,7 @@ export function FilePreviewDialog() {
       return (
         <div className="flex flex-col items-center gap-4">
           <img
-            src={thumbnailUrl}
+            src={finalThumbnailUrl}
             alt={previewFile.originalName}
             className="max-w-full max-h-[40vh] object-contain rounded"
           />
@@ -122,7 +168,7 @@ export function FilePreviewDialog() {
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <DialogTitle className="truncate pr-2">
+              <DialogTitle className="truncate max-w-4/6 pr-2">
                 {previewFile.originalName}
               </DialogTitle>
               <DialogDescription>
@@ -136,7 +182,7 @@ export function FilePreviewDialog() {
           {getPreviewContent()}
         </div>
 
-        <div className="flex justify-center mt-4">
+        <div className="flex justify-center mt-4 gap-2">
           <Button
             size="lg"
             onClick={() => downloadFile(previewFile)}
@@ -144,6 +190,11 @@ export function FilePreviewDialog() {
           >
             <Download size={16} />
             Download
+          </Button>
+
+          <Button size="lg" onClick={handleCopy} className="gap-2">
+            <Copy size={16} />
+            {isCopying ? "Copying..." : "Copy Link"}
           </Button>
         </div>
       </DialogContent>

@@ -1,11 +1,10 @@
 "use client";
 
-import { useId, useState, useEffect } from "react";
+import { useId, useEffect } from "react";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,6 +31,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import z from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormDescription,
+  FormMessage,
+} from "@/components/ui/form";
 
 const cronSettingsSchema = z.object({
   cronEnabled: z.boolean(),
@@ -42,18 +53,10 @@ const cronSettingsSchema = z.object({
     .string()
     .min(1, { message: "Schedule is required" }),
   tempCleanupSchedule: z.string().min(1, { message: "Schedule is required" }),
-  cronLogLevel: z.enum(["debug", "info", "warn", "error"]),
   cronTimezone: z.string().min(1, { message: "Timezone is required" }),
 });
 
-const mapZodErrors = (err: z.ZodError) => {
-  const out: Record<string, string> = {};
-  for (const issue of err.issues) {
-    const key = String(issue.path?.[0] ?? "");
-    out[key] = issue.message;
-  }
-  return out;
-};
+type CronSettingsForm = z.infer<typeof cronSettingsSchema>;
 
 export function CronSettings() {
   const id = useId();
@@ -69,17 +72,6 @@ export function CronSettings() {
     refetch: refetchCronStatus,
   } = useQuery(trpc.cron.cronStatus.queryOptions());
 
-  // Cron settings state
-  const [cronEnabled, setCronEnabled] = useState<boolean>(true);
-  const [completedJobsCleanupSchedule, setCompletedJobsCleanupSchedule] =
-    useState<string>("0 2 * * *");
-  const [expiredFilesCleanupSchedule, setExpiredFilesCleanupSchedule] =
-    useState<string>("0 4 * * *");
-  const [tempCleanupSchedule, setTempCleanupSchedule] =
-    useState<string>("*/30 * * * *");
-  const [cronLogLevel, setCronLogLevel] = useState<string>("info");
-  const [cronTimezone, setCronTimezone] = useState<string>("UTC");
-
   const settingsMutation = useMutation(trpc.settings.set.mutationOptions());
   const restartCronMutation = useMutation(
     trpc.cron.cronRestart.mutationOptions()
@@ -87,63 +79,44 @@ export function CronSettings() {
   const startCronMutation = useMutation(trpc.cron.cronStart.mutationOptions());
   const stopCronMutation = useMutation(trpc.cron.cronStop.mutationOptions());
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const form = useForm<CronSettingsForm>({
+    resolver: zodResolver(cronSettingsSchema),
+    defaultValues: {
+      cronEnabled: true,
+      completedJobsCleanupSchedule: "0 2 * * *",
+      expiredFilesCleanupSchedule: "0 4 * * *",
+      tempCleanupSchedule: "*/30 * * * *",
+      cronTimezone: "UTC",
+    },
+  });
+
+  const { handleSubmit, reset, watch } = form;
+  const watchCronEnabled = watch("cronEnabled");
 
   useEffect(() => {
     if (!currentRaw) return;
 
-    setCronEnabled(!!currentRaw.cronEnabled);
-    setCompletedJobsCleanupSchedule(
-      currentRaw.completedJobsCleanupSchedule ?? "0 2 * * *"
-    );
-    setExpiredFilesCleanupSchedule(
-      currentRaw.expiredFilesCleanupSchedule ?? "0 4 * * *"
-    );
-    setTempCleanupSchedule(currentRaw.tempCleanupSchedule ?? "*/30 * * * *");
-    setCronLogLevel(currentRaw.cronLogLevel ?? "info");
-    setCronTimezone(currentRaw.cronTimezone ?? "UTC");
-  }, [currentRaw]);
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const parsed = cronSettingsSchema.safeParse({
-      cronEnabled,
-      completedJobsCleanupSchedule,
-      expiredFilesCleanupSchedule,
-      tempCleanupSchedule,
-      cronLogLevel,
-      cronTimezone,
+    reset({
+      cronEnabled: !!currentRaw.cronEnabled,
+      completedJobsCleanupSchedule:
+        currentRaw.completedJobsCleanupSchedule ?? "0 2 * * *",
+      expiredFilesCleanupSchedule:
+        currentRaw.expiredFilesCleanupSchedule ?? "0 4 * * *",
+      tempCleanupSchedule: currentRaw.tempCleanupSchedule ?? "*/30 * * * *",
+      cronTimezone: currentRaw.cronTimezone ?? "UTC",
     });
+  }, [currentRaw, reset]);
 
-    if (!parsed.success) {
-      const mapped = mapZodErrors(parsed.error);
-      setErrors(mapped);
-      toast.error("Please fix validation errors before saving");
-      return;
-    }
-
-    setErrors({});
-
+  const onSubmit = handleSubmit(async (values) => {
     try {
-      await settingsMutation.mutateAsync({
-        cronEnabled,
-        completedJobsCleanupSchedule,
-        expiredFilesCleanupSchedule,
-        tempCleanupSchedule,
-        cronLogLevel,
-        cronTimezone,
-      });
-
-      // Refresh cron status after saving settings
+      await settingsMutation.mutateAsync(values);
       refetchCronStatus();
-
       toast.success("Cron settings saved successfully");
     } catch (err: any) {
       console.error("Failed to save cron settings", err);
       toast.error(err?.message || "Failed to save cron settings");
     }
-  };
+  });
 
   const handleRestartCron = async () => {
     try {
@@ -303,163 +276,151 @@ export function CronSettings() {
           )}
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div className="flex items-center gap-3 py-4 border-b">
-            <Switch
-              id={`${id}-cron-enabled`}
-              checked={cronEnabled}
-              onCheckedChange={(v) => setCronEnabled(!!v)}
-            />
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-cron-enabled`}>Enable Cron Service</Label>
-              <p className="text-sm text-muted-foreground">
-                Enable automatic cleanup tasks and scheduled maintenance
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-completed-jobs-schedule`}>
-                Completed Jobs Cleanup Schedule
-              </Label>
-              <Input
-                id={`${id}-completed-jobs-schedule`}
-                value={completedJobsCleanupSchedule}
-                onChange={(e) =>
-                  setCompletedJobsCleanupSchedule(e.target.value)
-                }
-                placeholder="0 2 * * *"
-                disabled={!cronEnabled}
+        <Form {...form}>
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="flex items-center gap-3 py-4 border-b">
+              <FormField
+                name="cronEnabled"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-3">
+                      <FormControl>
+                        <Switch
+                          id={`${id}-cron-enabled`}
+                          checked={field.value}
+                          onCheckedChange={(v) => field.onChange(!!v)}
+                        />
+                      </FormControl>
+                      <div className="space-y-1">
+                        <FormLabel>Enable Cron Service</FormLabel>
+                        <FormDescription>
+                          Enable automatic cleanup tasks and scheduled
+                          maintenance
+                        </FormDescription>
+                      </div>
+                    </div>
+                  </FormItem>
+                )}
               />
-              {errors.completedJobsCleanupSchedule && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.completedJobsCleanupSchedule}
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Cron schedule for cleaning up old completed jobs (default: daily
-                at 2 AM)
-              </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-expired-files-schedule`}>
-                Expired Files Cleanup Schedule
-              </Label>
-              <Input
-                id={`${id}-expired-files-schedule`}
-                value={expiredFilesCleanupSchedule}
-                onChange={(e) => setExpiredFilesCleanupSchedule(e.target.value)}
-                placeholder="0 4 * * *"
-                disabled={!cronEnabled}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                name="completedJobsCleanupSchedule"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Completed Jobs Cleanup Schedule</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="0 2 * * *"
+                        disabled={!watchCronEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Cron schedule for cleaning up old completed jobs (default:
+                      daily at 2 AM)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.expiredFilesCleanupSchedule && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.expiredFilesCleanupSchedule}
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Cron schedule for deleting expired files from storage (default:
-                daily at 4 AM)
-              </p>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-temp-schedule`}>
-                Temp Cleanup Schedule
-              </Label>
-              <Input
-                id={`${id}-temp-schedule`}
-                value={tempCleanupSchedule}
-                onChange={(e) => setTempCleanupSchedule(e.target.value)}
-                placeholder="*/30 * * * *"
-                disabled={!cronEnabled}
+              <FormField
+                name="expiredFilesCleanupSchedule"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Expired Files Cleanup Schedule</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="0 4 * * *"
+                        disabled={!watchCronEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Cron schedule for deleting expired files from storage
+                      (default: daily at 4 AM)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.tempCleanupSchedule && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.tempCleanupSchedule}
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Cron schedule for cleaning up temporary files (default: every 30
-                minutes)
-              </p>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-log-level`}>Log Level</Label>
-              <Select
-                value={cronLogLevel}
-                onValueChange={(value) => setCronLogLevel(value)}
-                disabled={!cronEnabled}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select log level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="debug">Debug</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="warn">Warning</SelectItem>
-                  <SelectItem value="error">Error</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.cronLogLevel && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.cronLogLevel}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor={`${id}-timezone`}>Timezone</Label>
-              <Input
-                id={`${id}-timezone`}
-                value={cronTimezone}
-                onChange={(e) => setCronTimezone(e.target.value)}
-                placeholder="UTC"
-                disabled={!cronEnabled}
+              <FormField
+                name="tempCleanupSchedule"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Temp Cleanup Schedule</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="*/30 * * * *"
+                        disabled={!watchCronEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Cron schedule for cleaning up temporary files (default:
+                      every 30 minutes)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.cronTimezone && (
-                <div className="text-sm text-destructive mt-1">
-                  {errors.cronTimezone}
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Timezone for cron schedule execution (e.g., UTC,
-                America/New_York)
-              </p>
-            </div>
-          </div>
 
-          <div className="p-4 bg-muted rounded-lg">
-            <h4 className="font-medium mb-2">Cron Schedule Format</h4>
-            <p className="text-sm text-muted-foreground mb-2">
-              Use standard cron format:{" "}
-              <code>minute hour day month weekday</code>
-            </p>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <div>
-                <code>0 2 * * *</code> - Daily at 2:00 AM
-              </div>
-              <div>
-                <code>*/30 * * * *</code> - Every 30 minutes
-              </div>
-              <div>
-                <code>0 */6 * * *</code> - Every 6 hours
-              </div>
-              <div>
-                <code>0 0 * * 0</code> - Weekly on Sunday at midnight
+              <FormField
+                name="cronTimezone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Timezone</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="UTC"
+                        disabled={!watchCronEnabled}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Timezone for cron schedule execution (e.g., UTC,
+                      America/New_York)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="p-4 bg-muted rounded-lg">
+              <h4 className="font-medium mb-2">Cron Schedule Format</h4>
+              <p className="text-sm text-muted-foreground mb-2">
+                Use standard cron format:{" "}
+                <code>minute hour day month weekday</code>
+              </p>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <div>
+                  <code>0 2 * * *</code> - Daily at 2:00 AM
+                </div>
+                <div>
+                  <code>*/30 * * * *</code> - Every 30 minutes
+                </div>
+                <div>
+                  <code>0 */6 * * *</code> - Every 6 hours
+                </div>
+                <div>
+                  <code>0 0 * * 0</code> - Weekly on Sunday at midnight
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex justify-end">
-            <Button type="submit" disabled={settingsMutation.isPending}>
-              {settingsMutation.isPending ? "Saving..." : "Save Cron Settings"}
-            </Button>
-          </div>
-        </form>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={settingsMutation.isPending}>
+                {settingsMutation.isPending
+                  ? "Saving..."
+                  : "Save Cron Settings"}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );

@@ -9,7 +9,9 @@ if (!SECRET) {
 }
 
 (async () => {
-  await runMigrations();
+  try {
+    await runMigrations();
+  } catch {}
   await fs.mkdir(TEMP_DIR, { recursive: true });
 
   let [data, [{ userCount }]] = await Promise.all([

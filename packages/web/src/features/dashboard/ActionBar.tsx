@@ -6,14 +6,20 @@ import { cn } from "@/lib/utils";
 import { Download, Share, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useFilesContext } from "../../contexts/FilesContext";
+import { useState } from "react";
+import type { FileItem } from "@/trpc/types";
+import { ShareDialog } from "./ShareDialog";
 
 interface ActionBarProps {
   selectedCount: number;
+  // optional list of selected file objects (if available)
+  selectedItems?: FileItem[];
 }
 
-export function ActionBar({ selectedCount }: ActionBarProps) {
+export function ActionBar({ selectedCount, selectedItems }: ActionBarProps) {
   const { selectedFiles, deselectAllFiles, showBulkDeleteConfirmation } =
     useFilesContext();
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   const handleDownload = () => {
     // TODO: Implement bulk download
@@ -28,8 +34,15 @@ export function ActionBar({ selectedCount }: ActionBarProps) {
   };
 
   const handleShare = () => {
-    // TODO: Implement sharing
-    toast.info("Share functionality coming soon");
+    // Open the share dialog
+    if (
+      (!selectedItems || selectedItems.length === 0) &&
+      selectedFiles.size === 0
+    ) {
+      toast.info("No files selected to share");
+      return;
+    }
+    setIsShareOpen(true);
   };
 
   const handleTag = () => {
@@ -81,6 +94,12 @@ export function ActionBar({ selectedCount }: ActionBarProps) {
           </Button>
         </div>
       </div>
+
+      <ShareDialog
+        open={isShareOpen}
+        onOpenChange={setIsShareOpen}
+        selectedItems={selectedItems}
+      />
     </div>
   );
 }
