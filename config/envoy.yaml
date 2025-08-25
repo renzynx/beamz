@@ -27,6 +27,7 @@ static_resources:
                   virtual_hosts:
                     - name: local_service
                       domains: ["*"]
+                      # Routes: /api/* -> beam_api (port 3333), everything else -> beam_web (port 3000)
                       routes:
                         - match:
                             prefix: "/api/"
