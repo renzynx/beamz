@@ -11,21 +11,7 @@ RUN bun install --global turbo@^2
 
 COPY . .
 
-RUN --mount=type=secret,id=turbo_token \
-  sh -c 'if [ -f /run/secrets/turbo_token ]; then export TURBO_TOKEN=$(cat /run/secrets/turbo_token); else export TURBO_TOKEN=""; fi && \
-    if [ -n "${TURBO_TEAM}" ]; then \
-      if [ -n "${TURBO_TOKEN}" ]; then \
-        turbo prune @beam/server @beam/background-jobs @beam/web --docker --team "${TURBO_TEAM}" --token "${TURBO_TOKEN}"; \
-      else \
-        turbo prune @beam/server @beam/background-jobs @beam/web --docker --team "${TURBO_TEAM}"; \
-      fi; \
-    else \
-      if [ -n "${TURBO_TOKEN}" ]; then \
-        turbo prune @beam/server @beam/background-jobs @beam/web --docker --token "${TURBO_TOKEN}"; \
-      else \
-        turbo prune @beam/server @beam/background-jobs @beam/web --docker; \
-      fi; \
-    fi'
+RUN turbo prune @beam/server @beam/background-jobs @beam/web --docker
 
 FROM base AS installer
 WORKDIR /app
@@ -36,20 +22,8 @@ RUN bun install
 
 COPY --from=builder /app/out/full/ .
 RUN --mount=type=secret,id=turbo_token \
-  sh -c 'if [ -f /run/secrets/turbo_token ]; then export TURBO_TOKEN=$(cat /run/secrets/turbo_token); else export TURBO_TOKEN=""; fi && \
-    if [ -n "${TURBO_TEAM}" ]; then \
-      if [ -n "${TURBO_TOKEN}" ]; then \
-        bun turbo run build --team "${TURBO_TEAM}" --token "${TURBO_TOKEN}"; \
-      else \
-        bun turbo run build --team "${TURBO_TEAM}"; \
-      fi; \
-    else \
-      if [ -n "${TURBO_TOKEN}" ]; then \
-        bun turbo run build --token "${TURBO_TOKEN}"; \
-      else \
-        bun turbo run build; \
-      fi; \
-    fi'
+  sh -c 'if [ -f /run/secrets/turbo_token ]; then export TURBO_TOKEN=$(cat /run/secrets/turbo_token); fi && \
+    bun turbo run build'
 
 # Ensure Next standalone has required public and static assets (if present)
 WORKDIR /app/apps/web
