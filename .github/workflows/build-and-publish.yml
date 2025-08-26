@@ -83,11 +83,11 @@ jobs:
             --include-path=/app/uploads \
             --include-path=/app/data \
             --include-path=/app/start.sh \
-            --include-path=/app/packages/db/dist \
-            --include-path=/app/packages/db/migrations \
-            --include-path=/app/packages/api/dist \
-            --include-path=/app/packages/background-jobs/dist \
-            --include-path=/app/packages/web \
+            --include-path=/app/packages/database/dist \
+            --include-path=/app/packages/database/migrations \
+            --include-path=/app/apps/server/dist \
+            --include-path=/app/apps/background-jobs/dist \
+            --include-path=/app/apps/web \
             --include-path=/app/node_modules/@ffmpeg-installer \
             --include-exe=bun \
             --show-clogs
