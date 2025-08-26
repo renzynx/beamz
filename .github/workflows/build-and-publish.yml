@@ -66,6 +66,8 @@ jobs:
           cache-to: type=gha,mode=max
           secrets: |
             turbo_token=${{ secrets.TURBO_TOKEN }}
+          build-args: |
+            TURBO_TEAM=${{ env.TURBO_TEAM }}
 
       - name: Install SlimToolkit
         run: |
