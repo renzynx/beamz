@@ -36,6 +36,6 @@ app.get("/api/settings", (c) =>
 );
 
 export default {
-  port: process.env.PORT || 3333,
+  port: process.env.API_PORT || 3333,
   fetch: app.fetch,
 };

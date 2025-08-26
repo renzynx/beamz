@@ -55,7 +55,7 @@ COPY --from=builder /app/packages/background-jobs/dist ./packages/background-job
 COPY --from=builder /app/packages/web/.next/standalone/ ./packages/web/
 COPY --from=ffmpeg-installer /app/node_modules/@ffmpeg-installer ./node_modules/@ffmpeg-installer
 
-EXPOSE 3000 3333
+EXPOSE 3000
 
 ENV HOSTNAME="0.0.0.0"
 ENV NODE_ENV=production

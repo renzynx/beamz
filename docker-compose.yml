@@ -3,8 +3,7 @@ services:
     image: ghcr.io/renzynx/beamz
     container_name: beamz
     ports:
-      - "3333:3333" # API
-      - "3000:3000" # Web
+      - "3000:3000" # change the port as needed
     environment:
       - NODE_ENV=production
       - BASE_URL=http://example.com # The URL you are deploying to

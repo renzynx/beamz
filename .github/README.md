@@ -22,11 +22,6 @@ Deployment guide — the repository includes example proxy compose files in `con
   - Copy your preferred compose file (for example `config/docker-compose.caddy.yml`) to the repository root, or create a `docker-compose.override.yml`.
   - Run `docker compose up -d` to start the stack.
 
-- To use your own external proxy:
-  - Use the root `docker-compose.yml` to run the Beamz services.
-  - Proxy requests for `/api/*` to the API service (container `api` on port `3333`) — for example, forward `api:3333/api` -> `web:3000/api`.
-  - Route all other requests to the web server (container `web` on port `3000`).
-
 Proxying must be configured for the application to work.
 
 This is the simplest and recommended way to deploy locally or on a server that supports Docker.
@@ -66,11 +61,7 @@ This is the simplest and recommended way to deploy locally or on a server that s
    docker compose logs -f
    ```
 
-Notes:
-
-- The example `config/Caddyfile` routes API requests under `/api/*` to the API and all other routes to the web server. Swap the proxy implementation by using the example docker-compose.\* files in `config/`.
-- If you change ports in any service image, update the corresponding proxy configuration.
-- Important: A proxy is required for the application to work — configure your proxy to forward API requests appropriately (for example, proxy requests from `api:3333/api` to `web:3000/api`).
+Now your application should be running at http://localhost:3000
 
 ## Manual deployment (no Docker) — for advanced / debugging
 
@@ -219,18 +210,8 @@ Important:
 
 ## Troubleshooting
 
-- Proxy 502 / DNS lookup errors:
-  - Make sure the proxy service uses the correct backend service name (the examples use `beamz`).
-  - Ensure services are on the same Docker network as the proxy container.
-
 - Logs:
   - Use `docker compose logs -f` to stream logs for all services.
-
-## Files of interest
-
-- `docker-compose.yml` — compose file
-- `config/Caddyfile` — Caddy reverse proxy example
-- `config/docker-compose.*.yml` — other proxy examples (traefik, nginx, apache, haproxy, envoy)
 
 ## Preview
 
