@@ -10,9 +10,6 @@ import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 import { ModeToggle } from "@/components/ModeToggle";
 import { UserButton } from "@daveyplate/better-auth-ui";
 import { LayoutDashboard } from "lucide-react";
-import { authClient } from "@/lib/auth";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -25,14 +22,6 @@ export default async function DashboardLayout({
   children: ReactNode;
   sidebar: ReactNode;
 }) {
-  const { data } = await authClient.getSession({
-    fetchOptions: { headers: await headers() },
-  });
-
-  if (!data?.user) {
-    redirect("/auth/sign-in");
-  }
-
   prefetch(trpc.settings.public.queryOptions());
 
   return (
