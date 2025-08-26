@@ -7,11 +7,13 @@ on:
     paths:
       - "packages/**"
       - "Dockerfile"
+      - ".github/workflows/**"
   pull_request:
     branches: [main, master]
     paths:
       - "packages/**"
       - "Dockerfile"
+      - ".github/workflows/**"
 
 env:
   REGISTRY: ghcr.io
