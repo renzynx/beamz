@@ -2,26 +2,32 @@
 
 [Preview](#preview)
 
-Beamz is a lightweight, high‑performance self‑hosted file server built for speed and efficiency. It ships as a tiny Docker image (only 249 MB) for minimal resource usage and easy deployment, exposes a ShareX‑compatible upload endpoint, and includes a web dashboard to browse and manage uploaded files and thumbnails. Actively developed — WIP (expect frequent updates and improvements).
+## Features
 
-Deployment guide — preferred: Docker Compose. Also includes manual deployment steps for advanced users.
-
-## Overview
-
-Beamz is a multi-service application consisting of:
-
-- API service (internal port 3333)
-- Web (Next.js) server (internal port 3000)
-- Background jobs worker
-
-The repository includes example proxy configurations (Caddy, Traefik, nginx, Apache, Envoy) in `config/` and an example `docker-compose.yml` at the repository root.
-
-## Prerequisites
-
-- Docker & Docker Compose (v2) installed
-- (Manual only) bun installed (https://bun.sh)
+- ⚡ Blazing fast — optimized for low latency and high throughput.
+- 🧩 Minimal resource usage — tiny Docker image (~249 MB) for economical deployments.
+- 🔁 Chunked & resumable uploads — reliably upload large files and resume interrupted transfers.
+- 📁 Flexible file management — browse, organize, delete, and preview uploads.
+- 📦 Per-user quotas — enforce storage limits per user.
+- 👥 User management — accounts, permissions, and simple administration.
+- 📤 ShareX-compatible upload endpoint for easy client integration.
+- 🖼️🎬🔊 Automatic thumbnails & previews for images, video, and audio files.
+- 🚧 More features coming — actively developed with frequent improvements.
 
 ## Recommended (preferred) — Docker Compose
+
+Deployment guide — the repository includes example proxy compose files in `config/` (Caddy, Traefik, nginx, Apache, Envoy).
+
+- To use a provided proxy setup:
+  - Copy your preferred compose file (for example `config/docker-compose.caddy.yml`) to the repository root, or create a `docker-compose.override.yml`.
+  - Run `docker compose up -d` to start the stack.
+
+- To use your own external proxy:
+  - Use the root `docker-compose.yml` to run the Beamz services.
+  - Proxy requests for `/api/*` to the API service (container `api` on port `3333`) — for example, forward `api:3333/api` -> `web:3000/api`.
+  - Route all other requests to the web server (container `web` on port `3000`).
+
+Proxying must be configured for the application to work.
 
 This is the simplest and recommended way to deploy locally or on a server that supports Docker.
 
@@ -29,6 +35,9 @@ This is the simplest and recommended way to deploy locally or on a server that s
 
    ```sh
    git clone https://github.com/renzynx/beamz
+   ```
+
+   ```sh
    cd beamz
    ```
 
@@ -37,9 +46,9 @@ This is the simplest and recommended way to deploy locally or on a server that s
    - If you want to run the built image locally, build it then use the compose file or update the `image:` value.
 
 3. Environment variables (set via compose file or environment):
-   - NODE_ENV=production
-   - BASE_URL=https://example.com # The URL you are deploying to
-   - SECRET=32-characters-random-string-for-secret
+   - `NODE_ENV=production`
+   - `BASE_URL=https://example.com` — The URL you are deploying to
+   - `SECRET=32-characters-random-string-for-secret`
 
 4. Volumes (compose) mount:
    - `./uploads:/app/uploads` — persistent file uploads
@@ -56,10 +65,6 @@ This is the simplest and recommended way to deploy locally or on a server that s
    ```sh
    docker compose logs -f
    ```
-
-7. Access the app via the proxy on:
-
-   http://localhost:3333
 
 Notes:
 
@@ -83,6 +88,9 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cd packages/db
+   ```
+
+   ```sh
    bun run build
    ```
 
@@ -90,6 +98,9 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cd ../api
+   ```
+
+   ```sh
    bun run build
    ```
 
@@ -97,6 +108,9 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cd ../background-jobs
+   ```
+
+   ```sh
    bun run build
    ```
 
@@ -104,6 +118,9 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cd ../web
+   ```
+
+   ```sh
    NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 bun run build
    ```
 
@@ -111,6 +128,9 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cp -r public .next/standalone/packages/web/
+   ```
+
+   ```sh
    cp -r .next/static .next/standalone/packages/web/.next/static
    ```
 
@@ -118,6 +138,9 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cd ../../packages/db
+   ```
+
+   ```sh
    bun dist/migrate.js
    ```
 
@@ -127,7 +150,13 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cd ../api
+   ```
+
+   ```sh
    bun dist/index.js &
+   ```
+
+   ```sh
    API_PID=$!
    ```
 
@@ -135,7 +164,13 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cd ../web
+   ```
+
+   ```sh
    bun .next/standalone/packages/web/server.js &
+   ```
+
+   ```sh
    WEB_PID=$!
    ```
 
@@ -143,7 +178,13 @@ This assumes you have `bun` installed and want to run the services directly on a
 
    ```sh
    cd ../background-jobs
+   ```
+
+   ```sh
    bun dist/index.js &
+   ```
+
+   ```sh
    JOBS_PID=$!
    ```
 
@@ -154,7 +195,7 @@ This assumes you have `bun` installed and want to run the services directly on a
 Important:
 
 - Running multiple processes in one environment is fragile. Use systemd, supervisord, or container orchestration in production.
-- The Docker image in this repo uses an Alpine-based Bun runtime. Bun's distroless images may lack shells or required libraries; testing your target runtime is recommended.
+- The Docker image in this repo uses an Alpine-based Bun runtime.
 
 ## Building the production Docker image locally
 
@@ -168,6 +209,9 @@ Important:
 
    ```sh
    docker tag <your-namespace>/beamz ghcr.io/<your-namespace>/beamz:latest
+   ```
+
+   ```sh
    docker push ghcr.io/<your-namespace>/beamz:latest
    ```
 
@@ -196,5 +240,3 @@ Important:
 </p>
 
 ---
-
-Access the app after starting compose at `http://localhost:3333`.
