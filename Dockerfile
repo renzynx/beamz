@@ -1,4 +1,8 @@
+# syntax=docker/dockerfile:1.4
 FROM oven/bun:1.2.18-alpine AS base
+
+ARG TURBO_TEAM
+ENV TURBO_TEAM=$TURBO_TEAM
 
 FROM base AS builder
 WORKDIR /app
@@ -7,7 +11,8 @@ RUN bun install --global turbo@^2
 
 COPY . .
 
-RUN turbo prune @beam/server @beam/background-jobs @beam/web --docker
+RUN --mount=type=secret,id=turbo_token \
+  sh -c 'export TURBO_TOKEN=$(cat /run/secrets/turbo_token) && turbo prune @beam/server @beam/background-jobs @beam/web --docker'
 
 FROM base AS installer
 WORKDIR /app
@@ -17,7 +22,8 @@ COPY --from=builder /app/out/json/ .
 RUN bun install
 
 COPY --from=builder /app/out/full/ .
-RUN bun turbo run build
+RUN --mount=type=secret,id=turbo_token \
+  sh -c 'export TURBO_TOKEN=$(cat /run/secrets/turbo_token) && bun turbo run build'
 
 # Ensure Next standalone has required public and static assets (if present)
 WORKDIR /app/apps/web
