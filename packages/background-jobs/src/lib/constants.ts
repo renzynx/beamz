@@ -1,7 +1,7 @@
 import path from "path";
 
 export const UPLOAD_DIR = path.resolve(process.cwd(), "..", "..", "uploads");
-export const TEMP_DIR = path.resolve(process.cwd(), "..", "..", "tmp");
+export const TEMP_DIR = path.resolve(UPLOAD_DIR, "tmp");
 
 export const SUPPORTED_IMAGE_TYPES = [
   "image/jpeg",
