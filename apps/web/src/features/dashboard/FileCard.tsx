@@ -24,13 +24,7 @@ import {
 } from "@/components/ui/context-menu";
 import { useFilesContext } from "@/contexts/FilesContext";
 import { prefixWithCdn } from "@/features/dashboard/lib/utils";
-import {
-	getPreviewUrl,
-	getThumbnailUrl,
-	hasPreview,
-	hasThumbnail,
-	parseFileMetadata,
-} from "@/lib/metadata";
+import { parseFileMetadata } from "@/lib/metadata";
 import { formatFileSize, formatRelativeTime, getFileType } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import type { FileItem } from "@/trpc/types";
@@ -73,17 +67,12 @@ export function FileCard({
 	const isAudio = file.mimeType.startsWith("audio/");
 	const isPdf = file.mimeType.includes("pdf");
 
-	const thumbnailUrl = getThumbnailUrl(metadata);
-	const previewUrl = getPreviewUrl(metadata);
-	const hasValidThumbnail = hasThumbnail(metadata);
-	const hasValidPreview = hasPreview(metadata);
-
-	const thumbnailUrlPrefixed = thumbnailUrl
-		? prefixWithCdn(thumbnailUrl, settings?.cdnUrl ?? null)
-		: thumbnailUrl;
-	const previewUrlPrefixed = previewUrl
-		? prefixWithCdn(previewUrl, settings?.cdnUrl ?? null)
-		: previewUrl;
+	const thumbnailUrl = metadata?.thumbnail
+		? prefixWithCdn(`/api/f/${metadata.thumbnail}`, settings?.cdnUrl ?? null)
+		: null;
+	const previewUrl = metadata?.preview
+		? prefixWithCdn(`/api/f/${metadata.preview}`, settings?.cdnUrl ?? null)
+		: null;
 
 	const getFileIcon = () => {
 		if (isAudio) return <Music className="h-12 w-12 text-muted-foreground" />;
@@ -150,15 +139,11 @@ export function FileCard({
 					onMouseLeave={() => setIsHovering(false)}
 				>
 					<div className="relative aspect-video overflow-hidden bg-muted">
-						{hasValidThumbnail && thumbnailUrl && !imageError ? (
+						{thumbnailUrl && !imageError ? (
 							<>
-								{isVideo &&
-								isHovering &&
-								hasValidPreview &&
-								previewUrlPrefixed &&
-								!videoError ? (
+								{isVideo && isHovering && previewUrl && !videoError ? (
 									<video
-										src={previewUrlPrefixed}
+										src={previewUrl}
 										className="h-full w-full object-cover"
 										autoPlay
 										muted
@@ -168,7 +153,7 @@ export function FileCard({
 									/>
 								) : (
 									<img
-										src={thumbnailUrlPrefixed || thumbnailUrl}
+										src={thumbnailUrl}
 										alt={file.originalName}
 										className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
 										loading="lazy"

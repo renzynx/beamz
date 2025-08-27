@@ -13,13 +13,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { useFilesContext } from "@/contexts/FilesContext";
-import {
-	getPreviewUrl,
-	getThumbnailUrl,
-	hasPreview,
-	hasThumbnail,
-	parseFileMetadata,
-} from "@/lib/metadata";
+import { parseFileMetadata } from "@/lib/metadata";
 import { formatFileSize } from "@/lib/utils";
 import { useTRPC } from "@/trpc/client";
 import { prefixWithCdn } from "./lib/utils";
@@ -33,6 +27,7 @@ export function FilePreviewDialog() {
 
 	// Hooks must be declared unconditionally and in the same order on every render.
 	const [isCopying, setIsCopying] = useState(false);
+
 	const handleCopy = useCallback(async () => {
 		if (!previewFile) {
 			toast.error("No file URL available to copy");
@@ -72,13 +67,13 @@ export function FilePreviewDialog() {
 	if (!previewFile) return null;
 
 	const metadata = parseFileMetadata(previewFile.metadata);
-	const previewUrl = getPreviewUrl(metadata);
-	const thumbnailUrl = getThumbnailUrl(metadata);
-	const canPreview = hasPreview(metadata);
-	const canShowThumbnail = hasThumbnail(metadata);
 
-	const finalPreviewUrl = prefixWithCdn(previewUrl!, settings?.cdnUrl);
-	const finalThumbnailUrl = prefixWithCdn(thumbnailUrl!, settings?.cdnUrl);
+	const previewUrl = metadata?.preview
+		? prefixWithCdn(`/api/f/${metadata.preview}`, settings?.cdnUrl)
+		: null;
+	const thumbnailUrl = metadata?.thumbnail
+		? prefixWithCdn(`/api/f/${metadata.thumbnail}`, settings?.cdnUrl)
+		: null;
 	const originalFileUrl = prefixWithCdn(
 		`/api/f/${previewFile.key}.${previewFile.originalName.split(".").pop()}`,
 		settings?.cdnUrl,
@@ -102,10 +97,11 @@ export function FilePreviewDialog() {
 
 		// For videos, show preview if available, otherwise thumbnail
 		if (isVideo) {
-			if (canPreview && previewUrl) {
+			if (previewUrl) {
 				return (
+					// biome-ignore lint/a11y/useMediaCaption: <idc>
 					<video
-						src={finalPreviewUrl}
+						src={previewUrl}
 						controls
 						className="max-h-[60vh] max-w-full rounded"
 						preload="metadata"
@@ -114,11 +110,11 @@ export function FilePreviewDialog() {
 					</video>
 				);
 			}
-			if (canShowThumbnail && thumbnailUrl) {
+			if (thumbnailUrl) {
 				return (
 					<div className="flex flex-col items-center gap-4">
 						<img
-							src={finalThumbnailUrl}
+							src={thumbnailUrl}
 							alt={previewFile.originalName}
 							className="max-h-[40vh] max-w-full rounded object-contain"
 						/>
@@ -131,11 +127,11 @@ export function FilePreviewDialog() {
 		}
 
 		// For audio, show thumbnail if available
-		if (isAudio && canShowThumbnail && thumbnailUrl) {
+		if (isAudio && thumbnailUrl) {
 			return (
 				<div className="flex flex-col items-center gap-4">
 					<img
-						src={finalThumbnailUrl}
+						src={thumbnailUrl}
 						alt={previewFile.originalName}
 						className="max-h-[40vh] max-w-full rounded object-contain"
 					/>

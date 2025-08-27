@@ -1,7 +1,7 @@
 "use client";
 
 import type { FileItem } from "@/trpc/types";
-import { useFilesContext } from "../../contexts/FilesContext";
+import { useFilesContext } from "@/contexts/FilesContext";
 import { FileCard } from "./FileCard";
 
 interface FilesGridProps {

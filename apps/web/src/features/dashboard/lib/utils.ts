@@ -1,5 +1,5 @@
 export const prefixWithCdn = (path: string, baseUrl: string | null) => {
-	if (!baseUrl || !path) return "";
+	if (!baseUrl) return path;
 
 	const cdn = baseUrl.replace(/\/+$/, "");
 

@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { ButtonWithTooltip } from "@/components/ButtonWithTooltip";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
 	TooltipContent,
@@ -22,11 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useFilesContext } from "@/contexts/FilesContext";
 import { prefixWithCdn } from "@/features/dashboard/lib/utils";
-import {
-	getThumbnailUrl,
-	hasThumbnail,
-	parseFileMetadata,
-} from "@/lib/metadata";
+import { parseFileMetadata } from "@/lib/metadata";
 import {
 	formatDate,
 	formatFileSize,
@@ -43,8 +38,6 @@ export const columns: ColumnDef<FileItem>[] = [
 		cell: ({ row }) => {
 			const file = row.original;
 			const metadata = parseFileMetadata(file.metadata);
-			const thumbnailUrl = getThumbnailUrl(metadata);
-			const hasValidThumbnail = hasThumbnail(metadata);
 
 			// Fetch settings (suspense) to get CDN URL for prefixing thumbnails
 			const trpc = useTRPC();
@@ -52,9 +45,12 @@ export const columns: ColumnDef<FileItem>[] = [
 				trpc.settings.public.queryOptions(),
 			);
 
-			const thumbnailUrlPrefixed = thumbnailUrl
-				? prefixWithCdn(thumbnailUrl, settings?.cdnUrl ?? null)
-				: thumbnailUrl;
+			const thumbnailUrl = metadata?.thumbnail
+				? prefixWithCdn(
+						`/api/f/${metadata.thumbnail}`,
+						settings?.cdnUrl ?? null,
+					)
+				: null;
 
 			const isVideo = file.mimeType.startsWith("video/");
 			const isAudio = file.mimeType.startsWith("audio/");
@@ -71,9 +67,9 @@ export const columns: ColumnDef<FileItem>[] = [
 
 			return (
 				<div className="flex h-12 w-16 items-center justify-center">
-					{hasValidThumbnail && thumbnailUrl ? (
+					{thumbnailUrl ? (
 						<img
-							src={thumbnailUrlPrefixed || thumbnailUrl}
+							src={thumbnailUrl}
 							alt={file.originalName}
 							className="h-10 w-14 rounded border object-cover"
 							loading="lazy"
