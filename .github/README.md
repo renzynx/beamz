@@ -16,14 +16,6 @@
 
 ## Recommended (preferred) — Docker Compose
 
-Deployment guide — the repository includes example proxy compose files in `config/` (Caddy, Traefik, nginx, Apache, Envoy).
-
-- To use a provided proxy setup:
-  - Copy your preferred compose file (for example `config/docker-compose.caddy.yml`) to the repository root, or create a `docker-compose.override.yml`.
-  - Run `docker compose up -d` to start the stack.
-
-Proxying must be configured for the application to work.
-
 This is the simplest and recommended way to deploy locally or on a server that supports Docker.
 
 1. Clone the repo and change into it:
