@@ -37,17 +37,13 @@ This is the simplest and recommended way to deploy locally or on a server that s
    - `BASE_URL=https://example.com` — The URL you are deploying to
    - `SECRET=32-characters-random-string-for-secret`
 
-4. Volumes (compose) mount:
-   - `./uploads:/app/uploads` — persistent file uploads
-   - `./data:/app/data` — sqlite DB files
-
-5. Start the stack (detached):
+4. Start the stack (detached):
 
    ```sh
    docker compose up -d
    ```
 
-6. Check logs (optional):
+5. Check logs (optional):
 
    ```sh
    docker compose logs -f
