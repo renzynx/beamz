@@ -7,12 +7,12 @@ import { metricsRouter } from "./routers/metrics";
 import { settingsRouter } from "./routers/settings";
 
 export const appRouter = router({
-	settings: settingsRouter,
-	files: filesRouter,
-	admin: adminRouter,
-	cron: cronRouter,
-	jobs: jobsRouter,
-	metrics: metricsRouter,
+  settings: settingsRouter,
+  files: filesRouter,
+  admin: adminRouter,
+  cron: cronRouter,
+  jobs: jobsRouter,
+  metrics: metricsRouter,
 });
 
 export type AppRouter = typeof appRouter;

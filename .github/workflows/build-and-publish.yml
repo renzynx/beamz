@@ -5,12 +5,14 @@ on:
     branches: [main, master]
     tags: ["v*"]
     paths:
+      - "apps/**"
       - "packages/**"
       - "Dockerfile"
       - ".github/workflows/**"
   pull_request:
     branches: [main, master]
     paths:
+      - "apps/**"
       - "packages/**"
       - "Dockerfile"
       - ".github/workflows/**"

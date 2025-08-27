@@ -9,9 +9,10 @@ sqlite.exec("PRAGMA synchronous = NORMAL;");
 sqlite.exec("PRAGMA busy_timeout = 5000;");
 
 export const db = drizzle(sqlite, {
-	schema,
+  schema,
 });
 
+export * from "drizzle-orm";
+export * from "./migrate";
 export * from "./schema";
 export { schema };
-export * from "drizzle-orm";

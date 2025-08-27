@@ -14,32 +14,32 @@ const app = new Hono().basePath("/api");
 
 app.use(logger());
 app.use(
-	"/trpc/*",
-	trpcServer({
-		router: appRouter,
-		endpoint: "/api/trpc",
-		createContext: (_opts, context) => {
-			return createContext({ context });
-		},
-	}),
+  "/trpc/*",
+  trpcServer({
+    router: appRouter,
+    endpoint: "/api/trpc",
+    createContext: (_opts, context) => {
+      return createContext({ context });
+    },
+  }),
 );
 
 app.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/", upload);
 app.route("/", file);
 app.get("/settings", (c) =>
-	c.json({
-		appName: SETTINGS.appName,
-		enableSignUp: SETTINGS.enableSignUp,
-		chunkSize: SETTINGS.chunkSize,
-		maxFileSize: SETTINGS.maxFileSize,
-		blackListedExtensions: SETTINGS.blackListedExtensions
-			? SuperJSON.parse(SETTINGS.blackListedExtensions)
-			: [],
-	}),
+  c.json({
+    appName: SETTINGS.appName,
+    enableSignUp: SETTINGS.enableSignUp,
+    chunkSize: SETTINGS.chunkSize,
+    maxFileSize: SETTINGS.maxFileSize,
+    blackListedExtensions: SETTINGS.blackListedExtensions
+      ? SuperJSON.parse(SETTINGS.blackListedExtensions)
+      : [],
+  }),
 );
 
 export default {
-	port: process.env.API_PORT || 3333,
-	fetch: app.fetch,
+  port: process.env.API_PORT || 3333,
+  fetch: app.fetch,
 };

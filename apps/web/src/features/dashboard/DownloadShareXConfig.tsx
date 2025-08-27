@@ -20,33 +20,33 @@ const CONFIG = (baseUrl: string, apiKey: string) => `{
 }`;
 
 export const DownloadShareXConfig = ({
-	baseUrl,
-	apiKey,
+  baseUrl,
+  apiKey,
 }: {
-	baseUrl: string;
-	apiKey: string;
+  baseUrl: string;
+  apiKey: string;
 }) => {
-	const downloadConfig = useCallback(() => {
-		const blob = new Blob([CONFIG(baseUrl, apiKey)], {
-			type: "application/json",
-		});
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = "beamz.sxcu";
-		a.click();
-		URL.revokeObjectURL(url);
-	}, [baseUrl, apiKey]);
+  const downloadConfig = useCallback(() => {
+    const blob = new Blob([CONFIG(baseUrl, apiKey)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "beamz.sxcu";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [baseUrl, apiKey]);
 
-	return (
-		<Button size="lg" className="cursor-pointer" onClick={downloadConfig}>
-			<Image
-				src="/assets/ShareX_Logo.svg"
-				alt="ShareX Logo"
-				width={24}
-				height={24}
-			/>
-			Download ShareX Configuration
-		</Button>
-	);
+  return (
+    <Button size="lg" className="cursor-pointer" onClick={downloadConfig}>
+      <Image
+        src="/assets/ShareX_Logo.svg"
+        alt="ShareX Logo"
+        width={24}
+        height={24}
+      />
+      Download ShareX Configuration
+    </Button>
+  );
 };

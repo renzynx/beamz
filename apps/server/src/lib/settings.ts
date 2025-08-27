@@ -1,7 +1,7 @@
-import type { settings } from "@beam/database/schema";
+import type { settings } from "@beam/database/src/schema";
 
 type Setting = typeof settings.$inferSelect & {
-	initialized: boolean;
+  initialized: boolean;
 };
 
 export const SETTINGS: Setting = {} as Setting;
