@@ -1,6 +1,6 @@
 {
 	"$schema": "https://turbo.build/schema.json",
-	"ui": "tui",
+	"ui": "stream",
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
@@ -30,6 +30,10 @@
 			"persistent": true
 		},
 		"db:generate": {
+			"cache": false,
+			"persistent": true
+		},
+		"start": {
 			"cache": false,
 			"persistent": true
 		}

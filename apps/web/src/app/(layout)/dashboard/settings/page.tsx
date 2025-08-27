@@ -6,6 +6,8 @@ import {
 	UpdateNameCard,
 } from "@daveyplate/better-auth-ui";
 import { headers } from "next/headers";
+import { getTheme, getThemeList } from "@/app/_actions/theme";
+import ThemeSelect from "@/components/ThemeSelect";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DownloadShareXConfig } from "@/features/dashboard/DownloadShareXConfig";
 import { authClient } from "@/lib/auth";
@@ -18,6 +20,10 @@ export default async function SettingsPage() {
 	});
 	const baseUrl = process.env.BASE_URL;
 
+	// load current theme and available themes from server actions
+	const selectedTheme = await getTheme().catch(() => "default");
+	const themeNames = await getThemeList().catch(() => [] as string[]);
+
 	return (
 		<div className="p-4">
 			<Tabs defaultValue="profile">
@@ -27,6 +33,13 @@ export default async function SettingsPage() {
 					<TabsTrigger value="sharex">ShareX</TabsTrigger>
 				</TabsList>
 				<TabsContent value="profile" className="space-y-6">
+					<div className="space-y-2">
+						<h3 className="font-medium">Appearance</h3>
+						<p className="text-muted-foreground text-sm">
+							Choose your UI theme.
+						</p>
+						<ThemeSelect themes={themeNames} currentTheme={selectedTheme} />
+					</div>
 					<UpdateAvatarCard />
 					<UpdateNameCard />
 				</TabsContent>

@@ -75,44 +75,8 @@ This assumes you have `bun` installed and want to run the services directly on a
 
 2. Build packages:
 
-   # Build DB
-
-   ```sh
-   cd packages/db
-   ```
-
    ```sh
    bun run build
-   ```
-
-   # Build API
-
-   ```sh
-   cd ../api
-   ```
-
-   ```sh
-   bun run build
-   ```
-
-   # Build background jobs
-
-   ```sh
-   cd ../background-jobs
-   ```
-
-   ```sh
-   bun run build
-   ```
-
-   # Build web
-
-   ```sh
-   cd ../web
-   ```
-
-   ```sh
-   NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 bun run build
    ```
 
    # copy web standalone assets
@@ -128,59 +92,13 @@ This assumes you have `bun` installed and want to run the services directly on a
 3. Prepare runtime data and run migrations:
 
    ```sh
-   cd ../../packages/db
-   ```
-
-   ```sh
-   bun dist/migrate.js
+   bun db:migrate
    ```
 
 4. Start services (backgrounding with & for linux shell; use a process manager in production):
 
-   # API
-
    ```sh
-   cd ../api
-   ```
-
-   ```sh
-   bun dist/index.js &
-   ```
-
-   ```sh
-   API_PID=$!
-   ```
-
-   # Web
-
-   ```sh
-   cd ../web
-   ```
-
-   ```sh
-   bun .next/standalone/packages/web/server.js &
-   ```
-
-   ```sh
-   WEB_PID=$!
-   ```
-
-   # Background jobs
-
-   ```sh
-   cd ../background-jobs
-   ```
-
-   ```sh
-   bun dist/index.js &
-   ```
-
-   ```sh
-   JOBS_PID=$!
-   ```
-
-   ```sh
-   echo "API: $API_PID, WEB: $WEB_PID, JOBS: $JOBS_PID"
+   bun start
    ```
 
 Important:

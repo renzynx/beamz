@@ -1,8 +1,7 @@
 "use client";
 
 import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
-import { useTheme } from "next-themes";
-
+import { useTheme } from "@/app/_components/ThemeProvider";
 import { Button } from "./ui/button";
 import {
 	DropdownMenu,

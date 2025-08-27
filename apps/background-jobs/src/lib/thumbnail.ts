@@ -1,13 +1,12 @@
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
+import { basename, extname, join } from "node:path";
 import * as ffmpeg from "@ffmpeg-installer/ffmpeg";
-import { spawn } from "child_process";
-import { promises as fs } from "fs";
-import { basename, extname, join } from "path";
 import {
 	PREVIEW_CONFIG,
 	SUPPORTED_AUDIO_TYPES,
 	SUPPORTED_IMAGE_TYPES,
 	SUPPORTED_VIDEO_TYPES,
-	TEMP_DIR,
 	THUMBNAIL_CONFIG,
 	UPLOAD_DIR,
 } from "./constants";
@@ -179,6 +178,7 @@ export async function extractAlbumCoverDirectly(
 		const process = spawn(ffmpegPath, args);
 
 		let stderr = "";
+
 		process.stderr.on("data", (data) => {
 			stderr += data.toString();
 		});

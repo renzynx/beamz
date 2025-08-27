@@ -6,7 +6,6 @@ import { adminClient } from "better-auth/client/plugins";
 import { createAuthClient as createAuthClientReact } from "better-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { type ReactNode, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TRPCReactProvider } from "@/trpc/client";
@@ -37,12 +36,7 @@ export function Providers({ children }: { children: ReactNode }) {
 	);
 
 	return (
-		<NextThemesProvider
-			attribute="class"
-			defaultTheme="system"
-			enableSystem
-			disableTransitionOnChange
-		>
+		<>
 			<TRPCReactProvider>
 				<AuthQueryProvider>
 					<AuthUIProviderTanstack
@@ -61,6 +55,6 @@ export function Providers({ children }: { children: ReactNode }) {
 				</AuthQueryProvider>
 			</TRPCReactProvider>
 			<Toaster richColors closeButton position="bottom-center" />
-		</NextThemesProvider>
+		</>
 	);
 }

@@ -9,7 +9,7 @@
 		"db:gen": "drizzle-kit generate",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
-		"db:migrate": "bun migrate.ts"
+		"db:migrate": "bun dist/migrate.js"
 	},
 	"dependencies": {
 		"drizzle-orm": "^0.44.4"
