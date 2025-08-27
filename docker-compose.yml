@@ -9,5 +9,9 @@ services:
       - BASE_URL=http://example.com # The URL you are deploying to
       - SECRET=32-characters-random-string-for-secret
     volumes:
-      - ./uploads:/app/uploads
-      - ./data:/app/data
+      - beamz_uploads:/app/uploads
+      - beamz_data:/app/data
+
+volumes:
+  beamz_uploads:
+  beamz_data:
