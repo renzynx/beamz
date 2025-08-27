@@ -14,6 +14,20 @@ on:
       - "packages/**"
       - "Dockerfile"
       - ".github/workflows/**"
+  workflow_dispatch:
+    inputs:
+      deploy_tag:
+        description: 'Image tag to push (default: latest)'
+        required: false
+        default: 'latest'
+      push:
+        description: 'Whether to push the image to the registry (true/false)'
+        required: false
+        default: 'true'
+      optimize:
+        description: 'Run SlimToolkit optimization (true/false)'
+        required: false
+        default: 'true'
 
 env:
   REGISTRY: ghcr.io
@@ -183,3 +197,99 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "trivy-results.sarif"
+
+  manual-deploy:
+    name: Manual Deploy (workflow_dispatch)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image (fat)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          push: false
+          tags: beam:fat
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          secrets: |
+            turbo_token=${{ secrets.TURBO_TOKEN }}
+          build-args: |
+            TURBO_TEAM=${{ env.TURBO_TEAM }}
+
+      - name: Install SlimToolkit
+        if: ${{ github.event.inputs.optimize == 'true' }}
+        run: |
+          curl -sL https://raw.githubusercontent.com/slimtoolkit/slim/master/scripts/install-slim.sh | sudo -E bash -
+
+      - name: Optimize image with SlimToolkit
+        if: ${{ github.event.inputs.optimize == 'true' }}
+        env:
+          DSLIM_HTTP_PROBE: false
+          DSLIM_CONTINUE_AFTER: timeout:30
+        run: |
+          slim build \
+            --target beam:fat \
+            --tag beam:slim \
+            --http-probe=false \
+            --continue-after=timeout:30 \
+            --include-path=/app/uploads \
+            --include-path=/app/data \
+            --include-path=/app/start.sh \
+            --include-path=/app/packages/database/dist \
+            --include-path=/app/packages/database/migrations \
+            --include-path=/app/apps/server/dist \
+            --include-path=/app/apps/background-jobs/dist \
+            --include-path=/app/apps/web \
+            --include-path=/app/node_modules/@ffmpeg-installer \
+            --include-exe=bun \
+            --show-clogs
+
+      - name: Tag optimized image
+        run: |
+          # If optimization ran, tag the slim image; otherwise tag the fat image
+          TAG=${{ github.event.inputs.deploy_tag }}
+          if [ "${{ github.event.inputs.optimize }}" = "true" ] ; then
+            docker tag beam:slim ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}
+          else
+            docker tag beam:fat ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}
+          fi
+
+      - name: Show image comparison
+        run: |
+          echo "=== Image Size Comparison ==="
+          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "(beam|ghcr.io)" || true
+
+      - name: Push Docker image
+        if: ${{ github.event.inputs.push == 'true' }}
+        run: |
+          TAG=${{ github.event.inputs.deploy_tag }}
+          echo "Pushing ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}"
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}
+
+      - name: Upload SlimToolkit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slimtoolkit-artifacts
+          path: |
+            slim.report.json
+            .images/*/artifacts/
+          retention-days: 7
