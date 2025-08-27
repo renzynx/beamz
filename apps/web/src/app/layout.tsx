@@ -45,9 +45,8 @@ export default async function RootLayout({
 	children: React.ReactNode;
 }>) {
 	const selectedTheme = await getTheme().catch(() => "default");
-	// Only treat the server value as a forcedTheme when it is not the default fallback.
-	const forcedThemeForScript =
-		selectedTheme && selectedTheme !== "default" ? selectedTheme : undefined;
+	// Pass the selected theme as forcedTheme so ThemeProvider can handle "default" properly
+	const forcedThemeForScript = selectedTheme;
 
 	let availableThemes: string[] | undefined;
 	let availableThemeDefs:

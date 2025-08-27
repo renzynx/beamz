@@ -27,7 +27,7 @@ type NamedTheme = {
 };
 
 // allow passing available theme names from a server component that can call getThemeList()
-const DEFAULT_THEME_KEYS = ["amethyst-haze"];
+const DEFAULT_THEME_KEYS: string[] = [];
 
 const MEDIA = "(prefers-color-scheme: dark)";
 const isServer = typeof window === "undefined";
@@ -109,14 +109,18 @@ export const InlineThemeScript: FC<{
 }) => {
 	// build the argument list. script expects storageKey and modeKey so pre-hydration can read both.
 	// pass the full themeDefinitions object so the pre-hydration script can index by name
-	const inlineDefsObj = availableThemeDefs ?? {};
+	// only include theme lists/definitions when explicitly provided; when omitted rely on globals.css 'default'
+	const inlineDefsObj = availableThemeDefs ?? undefined;
+	const themesArg =
+		availableThemes ??
+		(DEFAULT_THEME_KEYS.length > 0 ? DEFAULT_THEME_KEYS : undefined);
 	const scriptArgs = JSON.stringify([
 		"class",
 		storageKey,
 		modeKey,
 		defaultTheme,
 		forcedTheme,
-		availableThemes ?? DEFAULT_THEME_KEYS,
+		themesArg,
 		undefined,
 		enableSystem,
 		enableColorScheme,
@@ -216,6 +220,14 @@ export const ThemeProvider: FC<
 
 		(async () => {
 			if (!activeName || activeName === "default") {
+				// Clear any existing theme tokens when switching to default
+				const el = document.documentElement;
+				for (let i = 0; i < el.style.length; i++) {
+					const property = el.style[i];
+					if (property.startsWith("--")) {
+						el.style.removeProperty(property);
+					}
+				}
 				// no named theme definitions; only update mode
 				setThemeState((s) => ({ ...s, currentMode: mode as Mode }));
 				return;
@@ -262,12 +274,16 @@ export const ThemeProvider: FC<
 	useEffect(() => {
 		if (isServer) return;
 		if (forcedTheme) {
-			// mirror SSR provided named theme
-			safeSetLS(storageKey, forcedTheme);
+			// mirror SSR provided named theme (but do not persist the special 'default' marker)
+			safeSetLS(
+				storageKey,
+				forcedTheme === "default" ? undefined : forcedTheme,
+			);
 			setNamedTheme(forcedTheme);
 			return;
 		}
-		safeSetLS(storageKey, namedTheme);
+		// avoid persisting a 'default' sentinel; remove the key so globals.css remains authoritative
+		safeSetLS(storageKey, namedTheme === "default" ? undefined : namedTheme);
 	}, [namedTheme, forcedTheme, storageKey]);
 
 	useEffect(() => {
@@ -336,7 +352,8 @@ export const ThemeProvider: FC<
 
 	// Explicit setter for named theme: updates storage and React state
 	const updateNamedTheme = (n: string | undefined) => {
-		safeSetLS(storageKey, n ?? undefined);
+		// Treat the special 'default' named theme as absence of a named theme in storage
+		safeSetLS(storageKey, n && n !== "default" ? n : undefined);
 		setNamedTheme(n);
 	};
 
@@ -362,6 +379,14 @@ export const ThemeProvider: FC<
 
 			(async () => {
 				if (!activeName || activeName === "default") {
+					// Clear any existing theme tokens when switching to default
+					const el = document.documentElement;
+					for (let i = 0; i < el.style.length; i++) {
+						const property = el.style[i];
+						if (property.startsWith("--")) {
+							el.style.removeProperty(property);
+						}
+					}
 					setThemeState((s) => ({ ...s, currentMode: mode as Mode }));
 					return;
 				}

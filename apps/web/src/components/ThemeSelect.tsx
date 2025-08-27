@@ -40,15 +40,35 @@ export default function ThemeSelect({
 		else if (ctxTheme) setValue(ctxTheme);
 	}, [propCurrent, ctxTheme]);
 
-	const humanize = (key: string) =>
-		key.replace(/[-_]+/g, " ").replace(/\b\w/g, (s) => s.toUpperCase());
+	const humanize = (key: string) => {
+		// Special case for "default" theme
+		if (key === "default") return "Default";
+		return key.replace(/[-_]+/g, " ").replace(/\b\w/g, (s) => s.toUpperCase());
+	};
 
 	const handleChange = (v: string) => {
 		setValue(v);
 		// If consumer passed themes/currentTheme then persist server-side via action
 		if (propThemes || propCurrent !== undefined) {
 			startTransition(() => {
-				void setThemeAction(v).then(() => router.refresh());
+				void setThemeAction(v)
+					.then(() => {
+						// For "default" theme, also clear client-side theme immediately
+						if (v === "default" && setNamedTheme) {
+							setNamedTheme("default");
+						}
+						// Add a small delay to ensure server state is updated
+						setTimeout(() => {
+							router.refresh();
+						}, 100);
+					})
+					.catch((error) => {
+						console.error("Failed to set theme:", error);
+						// Fallback: try to set client-side theme directly
+						if (setNamedTheme) {
+							setNamedTheme(v);
+						}
+					});
 			});
 			return;
 		}

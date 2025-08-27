@@ -57,9 +57,14 @@ export const script = (
 	try {
 		// Mirror the SSR-provided named theme into localStorage so client pre-hydration sees it
 		// but do NOT mirror the 'default' special value — globals.css covers default.
-		if (forcedTheme && forcedTheme !== "default") {
+		if (forcedTheme) {
 			try {
-				localStorage.setItem(storageKey, forcedTheme);
+				if (forcedTheme === "default") {
+					// Clear localStorage when explicitly set to default
+					localStorage.removeItem(storageKey);
+				} else {
+					localStorage.setItem(storageKey, forcedTheme);
+				}
 			} catch {}
 		}
 
