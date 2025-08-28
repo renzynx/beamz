@@ -109,7 +109,9 @@ jobs:
             --include-path=/app/apps/background-jobs/dist \
             --include-path=/app/apps/web \
             --include-path=/app/node_modules/@ffmpeg-installer \
+            --include-path=/app/apps/gateway/gateway \
             --include-exe=bun \
+            --include-exe=gateway \
             --show-clogs
 
       - name: Tag optimized image
@@ -261,7 +263,9 @@ jobs:
             --include-path=/app/apps/background-jobs/dist \
             --include-path=/app/apps/web \
             --include-path=/app/node_modules/@ffmpeg-installer \
+            --include-path=/app/apps/gateway/gateway \
             --include-exe=bun \
+            --include-exe=gateway \
             --show-clogs
 
       - name: Tag optimized image
