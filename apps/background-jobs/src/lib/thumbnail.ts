@@ -324,6 +324,15 @@ export async function generateThumbnail(
     // Check if input file exists
     await fs.access(inputPath);
 
+    // Clean up any existing thumbnail and preview files before generating new ones
+    const potentialThumbnailPath = join(UPLOAD_DIR, `${baseName}_thumb.webp`);
+    const potentialPreviewPath = join(UPLOAD_DIR, `${baseName}_preview.webm`);
+    
+    await Promise.allSettled([
+      fs.unlink(potentialThumbnailPath).catch(() => {}), // Ignore errors if files don't exist
+      fs.unlink(potentialPreviewPath).catch(() => {}),   // Ignore errors if files don't exist
+    ]);
+
     if (SUPPORTED_IMAGE_TYPES.includes(mimeType)) {
       // Generate image thumbnail
       await generateImageThumbnail(inputPath, thumbnailPath);
