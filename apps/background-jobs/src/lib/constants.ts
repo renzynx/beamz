@@ -10,6 +10,5 @@ export const PREVIEW_CONFIG = {
   width: 640,
   height: 360,
   format: "webm" as const,
-  duration: 10, // seconds
-  fps: 15,
+  fps: 10,
 };

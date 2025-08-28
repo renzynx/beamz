@@ -104,30 +104,96 @@ export async function generateVideoThumbnail(
 export async function generateVideoPreview(
   inputPath: string,
   outputPath: string,
-  duration: number = PREVIEW_CONFIG.duration,
 ): Promise<void> {
+  const videoDuration = await getVideoDuration(inputPath);
+
+  const clipDuration = 1.0;
+  const maxPreviewDuration = 4.0;
+  const numClips = Math.max(
+    1,
+    Math.min(4, Math.floor(maxPreviewDuration / clipDuration)),
+  );
+
+  // Generate random timestamps, ensuring they don't overlap and have minimum spacing
+  const timestamps: number[] = [];
+  const minInterval = 8;
+  const maxAttempts = 50;
+
+  for (let i = 0; i < numClips; i++) {
+    let timestamp: number;
+    let attempts = 0;
+
+    do {
+      // Pick a random moment, ensuring we don't go beyond video duration
+      const maxStart = Math.max(0, videoDuration - clipDuration - 1);
+      timestamp = maxStart > 0 ? Math.random() * maxStart : 0;
+      attempts++;
+
+      if (attempts > maxAttempts) {
+        // If we can't find a good spot, just space them evenly
+        timestamp = (i * videoDuration) / numClips;
+        break;
+      }
+    } while (
+      timestamps.some((t) => Math.abs(t - timestamp) < minInterval) ||
+      timestamp + clipDuration > videoDuration
+    );
+
+    timestamps.push(timestamp);
+  }
+
+  // Sort timestamps chronologically
+  timestamps.sort((a, b) => a - b);
+
   return new Promise((resolve, reject) => {
+    // Create a simpler approach: extract multiple clips and concatenate them
+    const filterParts: string[] = [];
+
+    // Create trim filters for each timestamp
+    timestamps.forEach((ts, index) => {
+      filterParts.push(
+        `[0:v]trim=start=${ts.toFixed(2)}:duration=${clipDuration},setpts=PTS-STARTPTS,scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:(ow-iw)/2:(oh-ih)/2[clip${index}]`,
+      );
+    });
+
+    // Create concat filter
+    const clipLabels = timestamps.map((_, index) => `[clip${index}]`).join("");
+    filterParts.push(`${clipLabels}concat=n=${numClips}:v=1:a=0[out]`);
+
+    const filterComplex = filterParts.join(";");
+
     const args = [
       "-i",
       inputPath,
-      "-t",
-      duration.toString(),
-      "-vf",
-      `scale=${PREVIEW_CONFIG.width}:${PREVIEW_CONFIG.height}:force_original_aspect_ratio=decrease,pad=${PREVIEW_CONFIG.width}:${PREVIEW_CONFIG.height}:(ow-iw)/2:(oh-ih)/2`,
+      "-filter_complex",
+      filterComplex,
+      "-map",
+      "[out]",
       "-c:v",
       "libvpx-vp9",
       "-crf",
-      "30",
+      "40",
       "-b:v",
-      "0",
-      "-b:a",
-      "128k",
-      "-c:a",
-      "libopus",
+      "200k",
+      "-maxrate",
+      "300k",
+      "-bufsize",
+      "400k",
+      "-quality",
+      "realtime",
+      "-speed",
+      "8",
+      "-tile-columns",
+      "1",
+      "-frame-parallel",
+      "1",
+      "-threads",
+      "2",
+      "-an", // No audio
       "-r",
-      PREVIEW_CONFIG.fps.toString(),
+      "10", // Fixed 10 FPS for hover previews
       "-f",
-      "webm",
+      PREVIEW_CONFIG.format,
       "-y",
       outputPath,
     ];
@@ -373,4 +439,39 @@ export function getThumbnailPaths(fileKey: string) {
     thumbnail: `${baseName}_thumb.webp`,
     preview: `${baseName}_preview.webm`,
   };
+}
+
+export async function getVideoDuration(inputPath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const args = ["-i", inputPath, "-f", "null", "-"];
+
+    const process = spawn(ffmpegPath, args);
+
+    let stderr = "";
+    process.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    process.on("close", (code) => {
+      if (code === 0 || code === 1) {
+        // FFmpeg returns 1 for null output but duration is in stderr
+        const durationMatch = stderr.match(/Duration: (\d+):(\d+):(\d+\.\d+)/);
+        if (durationMatch) {
+          const hours = Number.parseInt(durationMatch[1], 10);
+          const minutes = Number.parseInt(durationMatch[2], 10);
+          const seconds = Number.parseFloat(durationMatch[3]);
+          const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+          resolve(totalSeconds);
+        } else {
+          reject(new Error("Could not parse video duration"));
+        }
+      } else {
+        reject(new Error(`FFmpeg failed with code ${code}: ${stderr}`));
+      }
+    });
+
+    process.on("error", (error) => {
+      reject(new Error(`Failed to spawn FFmpeg: ${error}`));
+    });
+  });
 }
