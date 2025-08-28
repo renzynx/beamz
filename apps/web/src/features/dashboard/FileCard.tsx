@@ -69,10 +69,10 @@ export function FileCard({
   const isPdf = file.mimeType.includes("pdf");
 
   const thumbnailUrl = metadata?.thumbnail
-    ? prefixWithCdn(`/api/f/${metadata.thumbnail}`, settings?.cdnUrl ?? null)
+    ? prefixWithCdn(`/f/${metadata.thumbnail}`, settings?.cdnUrl ?? null)
     : null;
   const previewUrl = metadata?.preview
-    ? prefixWithCdn(`/api/f/${metadata.preview}`, settings?.cdnUrl ?? null)
+    ? prefixWithCdn(`/f/${metadata.preview}`, settings?.cdnUrl ?? null)
     : null;
 
   const getFileIcon = () => {

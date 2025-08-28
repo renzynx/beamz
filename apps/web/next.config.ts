@@ -10,7 +10,6 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
-  experimental: { proxyTimeout: 1000 * 300 },
   images: {
     remotePatterns: [
       {
@@ -30,20 +29,17 @@ const nextConfig: NextConfig = {
         destination: "/dashboard",
         permanent: true,
       },
-      {
-        source: "/f/:slug*",
-        destination: "/api/f/:slug*",
-        permanent: true,
-      },
     ];
   },
   async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `http://localhost:${process.env.API_PORT || 3333}/api/:path*`,
-      },
-    ];
+    return process.env.NODE_ENV !== "production"
+      ? [
+          {
+            source: "/api/:path*",
+            destination: `http://localhost:${process.env.API_PORT || 3333}/api/:path*`,
+          },
+        ]
+      : [];
   },
 };
 

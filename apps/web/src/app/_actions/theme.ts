@@ -1,13 +1,12 @@
 "use server";
+import { cookies } from "next/headers";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { cookies } from "next/headers";
 
 export async function setTheme(theme: string) {
   try {
     const cookieStore = await cookies();
 
-    // If theme is "default", remove the cookie to reset to default behavior
     if (theme === "default") {
       cookieStore.delete("ui-theme");
     } else {
@@ -17,7 +16,7 @@ export async function setTheme(theme: string) {
     return theme;
   } catch (error) {
     console.error("Error setting theme:", error);
-    throw new Error("Failed to set theme");
+    return (error as any).message;
   }
 }
 

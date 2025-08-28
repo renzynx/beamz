@@ -243,7 +243,7 @@ export function FilesProvider({ children }: FilesProviderProps) {
 
   const downloadFile = (file: FileItem) => {
     const link = document.createElement("a");
-    link.href = `/api/f/${file.key}.${file.originalName.split(".").pop()}`;
+    link.href = `/f/${file.key}.${file.originalName.split(".").pop()}`;
     link.download = file.originalName;
     link.target = "_blank";
     link.style.display = "none";

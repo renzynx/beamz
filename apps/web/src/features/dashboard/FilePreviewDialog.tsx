@@ -36,7 +36,7 @@ export function FilePreviewDialog() {
     }
 
     const originalFileUrl = prefixWithCdn(
-      `/api/f/${previewFile.key}.${previewFile.originalName.split(".").pop()}`,
+      `/f/${previewFile.key}.${previewFile.originalName.split(".").pop()}`,
       settings?.cdnUrl,
     );
 
@@ -70,13 +70,13 @@ export function FilePreviewDialog() {
   const metadata = parseFileMetadata(previewFile.metadata);
 
   const previewUrl = metadata?.preview
-    ? prefixWithCdn(`/api/f/${metadata.preview}`, settings?.cdnUrl)
+    ? prefixWithCdn(`/f/${metadata.preview}`, settings?.cdnUrl)
     : null;
   const thumbnailUrl = metadata?.thumbnail
-    ? prefixWithCdn(`/api/f/${metadata.thumbnail}`, settings?.cdnUrl)
+    ? prefixWithCdn(`/f/${metadata.thumbnail}`, settings?.cdnUrl)
     : null;
   const originalFileUrl = prefixWithCdn(
-    `/api/f/${previewFile.key}.${previewFile.originalName.split(".").pop()}`,
+    `/f/${previewFile.key}.${previewFile.originalName.split(".").pop()}`,
     settings?.cdnUrl,
   );
 

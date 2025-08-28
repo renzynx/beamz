@@ -44,7 +44,7 @@ export function ShareDialog({
       const slug = `${f.key}.${ext}`;
 
       return prefixWithCdn(
-        `/api/f/${slug}`,
+        `/f/${slug}`,
         settings?.cdnUrl || window.location.origin,
       );
     });

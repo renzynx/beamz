@@ -47,10 +47,7 @@ export const columns: ColumnDef<FileItem>[] = [
       );
 
       const thumbnailUrl = metadata?.thumbnail
-        ? prefixWithCdn(
-            `/api/f/${metadata.thumbnail}`,
-            settings?.cdnUrl ?? null,
-          )
+        ? prefixWithCdn(`/f/${metadata.thumbnail}`, settings?.cdnUrl ?? null)
         : null;
 
       const isVideo = file.mimeType.startsWith("video/");
