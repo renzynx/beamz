@@ -11,7 +11,6 @@ const thumbnailJobSchema = z.object({
   fileId: z.string(),
   actualFilename: z.string(), // The actual filename with extension on disk
   mimeType: z.string(),
-  originalName: z.string(),
 });
 
 const diskCleanupJobSchema = z.object({
