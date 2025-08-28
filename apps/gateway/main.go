@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -108,11 +109,55 @@ func NewProxyServer(config Config) (*ProxyServer, error) {
 	return ps, nil
 }
 
+// clientIP extracts the IP portion from a remote address "ip:port" or returns the input.
+func clientIP(remoteAddr string) string {
+	if remoteAddr == "" {
+		return ""
+	}
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		return host
+	}
+	return remoteAddr
+}
+
 func (ps *ProxyServer) setupAPIProxy(apiURL *url.URL) {
 	originalDirector := ps.apiProxy.Director
 	ps.apiProxy.Director = func(req *http.Request) {
 		originalDirector(req)
 		req.Host = apiURL.Host
+
+		// Forward client IP and proto
+		ip := clientIP(req.RemoteAddr)
+		if ip != "" {
+			if prior := req.Header.Get("X-Forwarded-For"); prior == "" {
+				req.Header.Set("X-Forwarded-For", ip)
+			} else {
+				req.Header.Set("X-Forwarded-For", prior+", "+ip)
+			}
+			req.Header.Set("X-Real-IP", ip)
+		}
+
+		if req.Header.Get("X-Forwarded-Proto") == "" {
+			if req.TLS != nil {
+				req.Header.Set("X-Forwarded-Proto", "https")
+			} else {
+				req.Header.Set("X-Forwarded-Proto", "http")
+			}
+		}
+
+		if req.Header.Get("X-Forwarded-Host") == "" {
+			req.Header.Set("X-Forwarded-Host", req.Host)
+		}
+
+		// Add Forwarded header for RFC compliant proxies
+		proto := "http"
+		if req.TLS != nil {
+			proto = "https"
+		}
+		if ip == "" {
+			ip = "unknown"
+		}
+		req.Header.Set("Forwarded", fmt.Sprintf("for=%s;host=%s;proto=%s", ip, req.Host, proto))
 	}
 
 	ps.apiProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
@@ -150,8 +195,10 @@ func (ps *ProxyServer) setupNextJSProxy(nextjsURL, apiURL *url.URL) {
 				log.Printf("NextJS internal API request: %s %s -> %s", req.Method, req.URL.Path, ps.config.APIURL)
 			}
 		} else {
+			// For NextJS requests, fix the forwarded headers
 			req.Host = nextjsURL.Host
 
+			// Set proper forwarded headers for NextJS Server Actions
 			if originalXForwardedHost == "" {
 				req.Header.Set("X-Forwarded-Host", originalHost)
 			}
@@ -165,8 +212,30 @@ func (ps *ProxyServer) setupNextJSProxy(nextjsURL, apiURL *url.URL) {
 				}
 			}
 
-			// Remove conflicting headers that might cause issues
-			req.Header.Del("X-Forwarded-For")
+			// Note: retain X-Forwarded-For instead of removing it so backend can see client IP
+		}
+
+		// Always append client IP headers so backend see true client address
+		ip := clientIP(req.RemoteAddr)
+		if ip != "" {
+			if prior := req.Header.Get("X-Forwarded-For"); prior == "" {
+				req.Header.Set("X-Forwarded-For", ip)
+			} else {
+				req.Header.Set("X-Forwarded-For", prior+", "+ip)
+			}
+			req.Header.Set("X-Real-IP", ip)
+		}
+
+		// Ensure Forwarded header is present
+		proto := "http"
+		if req.TLS != nil {
+			proto = "https"
+		}
+		if ip == "" {
+			ip = "unknown"
+		}
+		if req.Header.Get("Forwarded") == "" {
+			req.Header.Set("Forwarded", fmt.Sprintf("for=%s;host=%s;proto=%s", ip, req.Host, proto))
 		}
 	}
 
@@ -276,11 +345,46 @@ func main() {
 
 	if apiURL, err := url.Parse(proxy.config.APIURL); err == nil {
 		uploadProxy := httputil.NewSingleHostReverseProxy(apiURL)
-		uploadProxy.Transport = &http.Transport{
-			MaxIdleConns:        100,
-			IdleConnTimeout:     120 * time.Second,
-			DisableCompression:  false,
-			MaxIdleConnsPerHost: 100,
+		// Preserve original director and augment headers similar to setupAPIProxy
+		originalDirector := uploadProxy.Director
+		uploadProxy.Director = func(req *http.Request) {
+			originalDirector(req)
+			req.Host = apiURL.Host
+
+			ip := clientIP(req.RemoteAddr)
+			if ip != "" {
+				if prior := req.Header.Get("X-Forwarded-For"); prior == "" {
+					req.Header.Set("X-Forwarded-For", ip)
+				} else {
+					req.Header.Set("X-Forwarded-For", prior+", "+ip)
+				}
+				req.Header.Set("X-Real-IP", ip)
+			}
+
+			if req.Header.Get("X-Forwarded-Proto") == "" {
+				if req.TLS != nil {
+					req.Header.Set("X-Forwarded-Proto", "https")
+				} else {
+					req.Header.Set("X-Forwarded-Proto", "http")
+				}
+			}
+
+			if req.Header.Get("X-Forwarded-Host") == "" {
+				req.Header.Set("X-Forwarded-Host", req.Host)
+			}
+
+			proto := "http"
+			if req.TLS != nil {
+				proto = "https"
+			}
+			if ip == "" {
+				ip = "unknown"
+			}
+			req.Header.Set("Forwarded", fmt.Sprintf("for=%s;host=%s;proto=%s", ip, req.Host, proto))
+		}
+
+		uploadProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+			proxy.handleProxyError(w, r, err, "API server", proxy.config.APIURL)
 		}
 
 		mux.Handle("/api/upload", uploadProxy)
