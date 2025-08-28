@@ -54,4 +54,5 @@ app.use(rateLimit).get("/settings", (c) =>
 export default {
   port: process.env.API_PORT || 3333,
   fetch: app.fetch,
+  idleTimeout: 60 * 10,
 };
