@@ -1,6 +1,6 @@
+import { adminProcedure, router } from "@/lib/trpc";
 import { asc, count, db, desc, user } from "@beam/database";
 import z from "zod";
-import { adminProcedure, router } from "../../lib/trpc";
 
 // Output schema for users
 export const userItemSchema = z.object({

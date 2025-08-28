@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AppRouter } from "@beam/trpc";
+import type { AppRouter } from "@beam/shared";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import {

@@ -1,11 +1,11 @@
 "use client";
 
-import { useSuspenseQuery } from "@tanstack/react-query";
-import dynamic from "next/dynamic";
-import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFilesContext } from "@/contexts/FilesContext";
 import { useTRPC } from "@/trpc/client";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { ActionBar } from "./ActionBar";
 import { DeleteConfirmationDialog } from "./DeleteConfirmationDialog";
 import { FileHeader } from "./FileHeader";

@@ -1,9 +1,9 @@
-import { promises as fs } from "node:fs";
+import { auth } from "@/lib/auth";
+import type { UploadMetadata } from "@beam/shared";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { auth } from "@/lib/auth";
-import type { UploadMetadata } from "@/lib/types";
+import { promises as fs } from "node:fs";
 import { getPartPath, registry } from "../helpers/uploadHelpers";
 
 const app = new Hono();

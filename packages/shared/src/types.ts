@@ -1,3 +1,19 @@
+export interface FileMetadata {
+  thumbnail: string | null;
+  preview: string | null;
+  type?: string;
+}
+
+export interface UploadMetadata {
+  chunks: Set<number>;
+  size: number;
+  finished: boolean;
+  filename: string;
+  totalChunks: number;
+  userId: string;
+  chunkSize: number;
+}
+
 export interface APIResponse<T = any> {
   success: boolean;
   data?: T;
@@ -24,19 +40,3 @@ export interface CronStatus {
 }
 
 export type LogLevel = "info" | "error" | "warn" | "debug";
-
-export interface FileMetadata {
-  thumbnail: string | null;
-  preview: string | null;
-  type?: string;
-}
-
-export interface UploadMetadata {
-  chunks: Set<number>;
-  size: number;
-  finished: boolean;
-  filename: string;
-  totalChunks: number;
-  userId: string;
-  chunkSize: number;
-}

@@ -1,9 +1,9 @@
+import type { CronSettings } from "@beam/shared";
 import * as cron from "node-cron";
 import { cleanupExpiredFiles, cleanupOrphanedTempFiles } from "./files";
 import { cleanupCompletedJobs } from "./jobs";
 import type { Logger } from "./logger";
 import type { SettingsManager } from "./settings-manager";
-import type { CronSettings } from "./types";
 
 export class JobScheduler {
   private expiredFilesTask?: cron.ScheduledTask;

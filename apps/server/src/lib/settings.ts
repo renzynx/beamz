@@ -1,4 +1,4 @@
-import type { settings } from "@beam/database/src/schema";
+import type { settings } from "@beam/database";
 
 type Setting = typeof settings.$inferSelect & {
   initialized: boolean;

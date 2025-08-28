@@ -1,12 +1,12 @@
 import { auth } from "@/lib/auth";
 import { isSupportedFileType } from "@/lib/thumbnail";
-import type { UploadMetadata } from "@/lib/types";
 import { getStoredName } from "@/lib/utils";
 import {
   enqueueDiskCleanup,
   enqueueThumbnail,
 } from "@/services/background-jobs";
 import { db, eq, files, sql, user } from "@beam/database";
+import type { UploadMetadata } from "@beam/shared";
 import { generateId } from "better-auth";
 import { fileTypeFromStream, type FileTypeResult } from "file-type";
 import type { Context } from "hono";
@@ -243,16 +243,9 @@ app.post(
 
         registry.delete(id);
 
-        let _thumbnailQueued = false;
         if (isSupportedFileType(mimeType)) {
           try {
-            await enqueueThumbnail(
-              fileId,
-              actualFilename,
-              mimeType,
-              uploadMeta.filename,
-            );
-            _thumbnailQueued = true;
+            await enqueueThumbnail(fileId, actualFilename, mimeType);
           } catch (error) {
             console.error("Failed to queue thumbnail generation:", error);
             // Don't fail the upload if thumbnail queueing fails

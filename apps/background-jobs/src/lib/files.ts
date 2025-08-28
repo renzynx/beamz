@@ -1,7 +1,7 @@
 import { db, files, lte } from "@beam/database";
+import { TEMP_DIR, UPLOAD_DIR } from "@beam/shared/constants";
 import { promises as fs } from "node:fs";
 import { extname, join } from "node:path";
-import { TEMP_DIR, UPLOAD_DIR } from "./constants";
 import { Logger } from "./logger";
 import { queueDiskCleanup } from "./queue";
 

@@ -1,9 +1,9 @@
-import { basename, extname } from "node:path";
 import {
   SUPPORTED_AUDIO_TYPES,
   SUPPORTED_IMAGE_TYPES,
   SUPPORTED_VIDEO_TYPES,
-} from "./constants";
+} from "@beam/shared/constants";
+import { basename, extname } from "node:path";
 
 export function isSupportedFileType(mimeType: string): boolean {
   return (

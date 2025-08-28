@@ -1,7 +1,7 @@
+import type { UploadMetadata } from "@beam/shared";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import type { UploadMetadata } from "@/lib/types";
 import {
   getMissingChunks,
   registry,

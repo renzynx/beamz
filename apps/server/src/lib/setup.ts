@@ -1,6 +1,7 @@
 import { count, db, eq, runMigrations, settings, user } from "@beam/database";
+import { TEMP_DIR } from "@beam/shared/constants";
 import { promises as fs } from "node:fs";
-import { SECRET, TEMP_DIR } from "./constants";
+import { SECRET } from "./constants";
 import { SETTINGS } from "./settings";
 
 if (!SECRET) {

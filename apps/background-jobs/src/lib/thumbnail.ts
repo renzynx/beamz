@@ -1,17 +1,16 @@
+import type { FileMetadata } from "@beam/shared";
+import {
+  SUPPORTED_AUDIO_TYPES,
+  SUPPORTED_IMAGE_TYPES,
+  SUPPORTED_VIDEO_TYPES,
+  UPLOAD_DIR,
+} from "@beam/shared/constants";
 import * as ffmpeg from "@ffmpeg-installer/ffmpeg";
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { basename, extname, join } from "node:path";
-import {
-  PREVIEW_CONFIG,
-  SUPPORTED_AUDIO_TYPES,
-  SUPPORTED_IMAGE_TYPES,
-  SUPPORTED_VIDEO_TYPES,
-  THUMBNAIL_CONFIG,
-  UPLOAD_DIR,
-} from "./constants";
+import { PREVIEW_CONFIG, THUMBNAIL_CONFIG } from "./constants";
 import { Logger } from "./logger";
-import type { FileMetadata } from "./types";
 
 const logger = new Logger();
 

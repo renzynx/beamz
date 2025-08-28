@@ -1,4 +1,4 @@
-import { UPLOAD_DIR } from "@/lib/constants";
+import { UPLOAD_DIR } from "@beam/shared/constants";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import { promises as fs } from "node:fs";

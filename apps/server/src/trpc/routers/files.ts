@@ -1,3 +1,9 @@
+import { protectedProcedure, router } from "@/lib/trpc";
+import { getStoredName } from "@/lib/utils";
+import {
+  enqueueDiskCleanup,
+  enqueueThumbnail,
+} from "@/services/background-jobs";
 import {
   and,
   asc,
@@ -10,19 +16,13 @@ import {
   sql,
   user,
 } from "@beam/database";
+import type { FileMetadata } from "@beam/shared";
+import { UPLOAD_DIR } from "@beam/shared/constants";
 import { TRPCError } from "@trpc/server";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import superjson from "superjson";
 import z from "zod";
-import { UPLOAD_DIR } from "@/lib/constants";
-import type { FileMetadata } from "@/lib/types";
-import { getStoredName } from "@/lib/utils";
-import {
-  enqueueDiskCleanup,
-  enqueueThumbnail,
-} from "@/services/background-jobs";
-import { protectedProcedure, router } from "../../lib/trpc";
 
 export const fileItemSchema = z.object({
   id: z.string(),
@@ -31,7 +31,6 @@ export const fileItemSchema = z.object({
   size: z.number(),
   mimeType: z.string(),
   metadata: z.string().nullable(),
-  userId: z.string(),
   createdAt: z.date().nullable(),
   updatedAt: z.date().nullable(),
 });
@@ -79,7 +78,6 @@ export const filesRouter = router({
           size: files.size,
           mimeType: files.mimeType,
           metadata: files.metadata,
-          userId: files.userId,
           createdAt: files.createdAt,
           updatedAt: files.updatedAt,
         })
@@ -158,7 +156,6 @@ export const filesRouter = router({
         file.id,
         getStoredName(file.key, file.originalName),
         file.mimeType,
-        file.originalName,
       );
 
       return {

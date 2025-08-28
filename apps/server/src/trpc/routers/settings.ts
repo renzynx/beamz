@@ -1,9 +1,9 @@
+import { SETTINGS } from "@/lib/settings";
+import { adminProcedure, publicProcedure, router } from "@/lib/trpc";
+import { cronReloadSettings } from "@/services/background-jobs";
 import { db, eq, settings } from "@beam/database";
 import SuperJSON from "superjson";
 import z from "zod";
-import { SETTINGS } from "@/lib/settings";
-import { cronReloadSettings } from "@/services/background-jobs";
-import { adminProcedure, publicProcedure, router } from "../../lib/trpc";
 
 const dbSettingSchema = z.object({
   appName: z.string().min(1),

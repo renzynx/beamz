@@ -1,0 +1,71 @@
+import path from "node:path";
+
+export const UPLOAD_DIR = path.resolve(process.cwd(), "..", "..", "uploads");
+export const TEMP_DIR = path.resolve(UPLOAD_DIR, "tmp");
+
+export const SUPPORTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/tiff",
+  "image/bmp",
+  "image/svg+xml",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "image/tga",
+  "image/exr",
+  "image/jp2",
+  "image/jpx",
+];
+
+export const SUPPORTED_VIDEO_TYPES = [
+  "video/mp4",
+  "video/webm",
+  "video/avi",
+  "video/mov",
+  "video/mkv",
+  "video/flv",
+  "video/wmv",
+  "video/m4v",
+  "video/3gp",
+  "video/quicktime",
+  "video/ogg",
+  "video/mpeg",
+  "video/x-msvideo",
+  "video/x-matroska",
+  "video/x-flv",
+  "video/x-ms-wmv",
+  "video/x-m4v",
+  "video/x-divx",
+  "video/x-ms-asf",
+  "video/mp2t",
+  "video/x-msvideo",
+];
+
+export const SUPPORTED_AUDIO_TYPES = [
+  "audio/mp3",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/flac",
+  "audio/aac",
+  "audio/ogg",
+  "audio/m4a",
+  "audio/wma",
+  "audio/opus",
+  "audio/x-ms-wma",
+  "audio/x-flac",
+  "audio/x-aac",
+  "audio/x-m4a",
+  "audio/x-wav",
+  "audio/x-mpeg",
+  "audio/mp4",
+  "audio/x-vorbis",
+  "audio/x-opus",
+  "audio/webm",
+  "audio/3gpp",
+  "audio/amr",
+  "audio/x-amr",
+];

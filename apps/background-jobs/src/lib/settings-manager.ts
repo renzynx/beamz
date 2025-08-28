@@ -1,6 +1,6 @@
 import { db, settings } from "@beam/database";
+import type { CronSettings } from "@beam/shared";
 import type { Logger } from "./logger";
-import type { CronSettings } from "./types";
 
 export class SettingsManager {
   private cronSettings?: CronSettings;

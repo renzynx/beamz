@@ -1,6 +1,6 @@
+import { adminProcedure, router } from "@/lib/trpc";
 import { count, db, files, jobs, sql, sum, user } from "@beam/database";
 import z from "zod";
-import { adminProcedure, router } from "../../lib/trpc";
 
 const CACHE_TTL_MS = 24 * 60 * 60_000; // 24 hours
 type CacheEntry = { ts: number; data: z.infer<typeof metricsOutputSchema> };

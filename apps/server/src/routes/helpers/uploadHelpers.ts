@@ -1,10 +1,10 @@
+import { SETTINGS } from "@/lib/settings";
+import { getFileExtension } from "@/lib/utils";
+import type { UploadMetadata } from "@beam/shared";
+import { TEMP_DIR, UPLOAD_DIR } from "@beam/shared/constants";
 import { join } from "node:path";
 import SuperJSON from "superjson";
 import z from "zod";
-import { TEMP_DIR, UPLOAD_DIR } from "@/lib/constants";
-import { SETTINGS } from "@/lib/settings";
-import type { UploadMetadata } from "@/lib/types";
-import { getFileExtension } from "@/lib/utils";
 
 export const getPartPath = (id: string) => join(TEMP_DIR, `${id}.part`);
 export const getFinalPath = (slug: string, originalFilename: string) =>

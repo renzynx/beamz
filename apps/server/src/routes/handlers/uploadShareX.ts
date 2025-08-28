@@ -161,7 +161,6 @@ app.post(
             newFile.id,
             getStoredName(slug, file.name),
             newFile.mimeType,
-            file.name,
           );
         } catch (error) {
           console.error("Failed to enqueue thumbnail to cron service:", error);

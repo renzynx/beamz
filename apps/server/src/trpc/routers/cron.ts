@@ -1,6 +1,5 @@
-import { TRPCError } from "@trpc/server";
-import z from "zod";
 import { SETTINGS } from "@/lib/settings";
+import { adminProcedure, router } from "@/lib/trpc";
 import {
   cronHealth,
   cronReloadSettings,
@@ -8,7 +7,8 @@ import {
   cronStart,
   cronStop,
 } from "@/services/background-jobs";
-import { adminProcedure, router } from "../../lib/trpc";
+import { TRPCError } from "@trpc/server";
+import z from "zod";
 
 export const cronStatusSchema = z.object({
   enabled: z.boolean(),

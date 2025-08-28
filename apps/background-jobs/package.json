@@ -11,9 +11,12 @@
   },
   "dependencies": {
     "@beam/database": "workspace:*",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@hono/zod-validator": "^0.7.2",
     "dotenv": "^17.2.1",
+    "hono": "^4.9.4",
     "node-cron": "^4.2.1",
-    "@ffmpeg-installer/ffmpeg": "^1.1.0"
+    "zod": "^4.1.4"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

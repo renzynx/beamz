@@ -1,50 +1,38 @@
-import type {
-  ControlResponse,
-  EnqueueDiskCleanupPayload,
-  EnqueueDiskCleanupResponse,
-  EnqueueThumbnailPayload,
-  EnqueueThumbnailResponse,
-} from "@/lib/types";
+import type { AppType } from "@beam/shared";
+import { hc } from "hono/client";
 
-const CRON_BASE = process.env.CRON_BASE_URL || "http://localhost:3335";
+const CRON_BASE = `http://localhost:${process.env.CRON_CONTROL_PORT ?? 3335}`;
 
-async function enqueueJob<TPayload, TResponse>(
-  endpoint: string,
-  body: TPayload,
-): Promise<TResponse> {
-  const res = await fetch(`${CRON_BASE}/${endpoint}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+// Hono RPC client
+const client = hc<AppType>(CRON_BASE);
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${res.statusText} ${text}`);
-  }
+async function handleResponse<T = any>(res: Response): Promise<T> {
+  if (res.ok) return (await res.json()) as T;
 
-  return (await res.json()) as TResponse;
+  const parsed = (await res
+    .json()
+    .catch(() => ({ error: "Unknown error" }))) as {
+    error?: string;
+  };
+
+  throw new Error(parsed.error || `HTTP ${res.status}: ${res.statusText}`);
 }
 
 export async function enqueueThumbnail(
   fileId: string,
   actualFilename: string,
   mimeType: string,
-  originalName?: string,
-): Promise<EnqueueThumbnailResponse> {
-  const payload: EnqueueThumbnailPayload = {
-    fileId,
-    actualFilename,
-    mimeType,
-    originalName,
-  };
+) {
   try {
-    return await enqueueJob<EnqueueThumbnailPayload, EnqueueThumbnailResponse>(
-      "enqueue/thumbnail",
-      payload,
-    );
+    const res = await client.enqueue.thumbnail.$post({
+      json: {
+        fileId,
+        actualFilename,
+        mimeType,
+      },
+    });
+
+    return await handleResponse(res);
   } catch (err: any) {
     console.error(`Failed to enqueue thumbnail: ${err?.message || err}`);
     throw err;
@@ -54,60 +42,73 @@ export async function enqueueThumbnail(
 export async function enqueueDiskCleanup(
   filePaths: string[],
   description?: string,
-): Promise<EnqueueDiskCleanupResponse> {
-  const payload: EnqueueDiskCleanupPayload = { filePaths, description };
+) {
   try {
-    return await enqueueJob<
-      EnqueueDiskCleanupPayload,
-      EnqueueDiskCleanupResponse
-    >("enqueue/disk-cleanup", payload);
+    const res = await client.enqueue["disk-cleanup"].$post({
+      json: {
+        filePaths,
+        description,
+      },
+    });
+
+    return await handleResponse(res);
   } catch (err: any) {
     console.error(`Failed to enqueue disk cleanup: ${err?.message || err}`);
     throw err;
   }
 }
 
-async function callControl<T = ControlResponse>(
-  path: string,
-  method = "POST",
-): Promise<T> {
-  const res = await fetch(`${CRON_BASE}/${path}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-  });
+export async function cronHealth() {
+  try {
+    const res = await client.health.$get();
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${res.statusText} ${text}`);
+    return await handleResponse(res);
+  } catch (err: any) {
+    console.error(`Failed to get cron health: ${err?.message || err}`);
+    throw err;
   }
-
-  return (await res.json()) as T;
 }
 
-export async function cronHealth(): Promise<{
-  status: string;
-  timestamp: string;
-  cron: any;
-}> {
-  return (await callControl<typeof fetch>("health", "GET")) as unknown as {
-    status: string;
-    timestamp: string;
-    cron: any;
-  };
+export async function cronRestart() {
+  try {
+    const res = await client.restart.$post();
+
+    return await handleResponse(res);
+  } catch (err: any) {
+    console.error(`Failed to restart cron: ${err?.message || err}`);
+    throw err;
+  }
 }
 
-export async function cronRestart(): Promise<ControlResponse> {
-  return await callControl<ControlResponse>("restart", "POST");
+export async function cronReloadSettings() {
+  try {
+    const res = await client["reload-settings"].$post();
+
+    return await handleResponse(res);
+  } catch (err: any) {
+    console.error(`Failed to reload cron settings: ${err?.message || err}`);
+    throw err;
+  }
 }
 
-export async function cronReloadSettings(): Promise<ControlResponse> {
-  return await callControl<ControlResponse>("reload-settings", "POST");
+export async function cronStart() {
+  try {
+    const res = await client.start.$post();
+
+    return await handleResponse(res);
+  } catch (err: any) {
+    console.error(`Failed to start cron: ${err?.message || err}`);
+    throw err;
+  }
 }
 
-export async function cronStart(): Promise<ControlResponse> {
-  return await callControl<ControlResponse>("start", "POST");
-}
+export async function cronStop() {
+  try {
+    const res = await client.stop.$post();
 
-export async function cronStop(): Promise<ControlResponse> {
-  return await callControl<ControlResponse>("stop", "POST");
+    return await handleResponse(res);
+  } catch (err: any) {
+    console.error(`Failed to stop cron: ${err?.message || err}`);
+    throw err;
+  }
 }

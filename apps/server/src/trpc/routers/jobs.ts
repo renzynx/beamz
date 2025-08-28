@@ -1,3 +1,4 @@
+import { adminProcedure, router } from "@/lib/trpc";
 import {
   and,
   asc,
@@ -11,7 +12,6 @@ import {
 } from "@beam/database";
 import { TRPCError } from "@trpc/server";
 import z from "zod";
-import { adminProcedure, router } from "../../lib/trpc";
 
 export const jobItemSchema = z.object({
   id: z.string(),
