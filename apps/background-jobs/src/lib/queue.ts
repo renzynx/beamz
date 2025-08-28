@@ -269,13 +269,11 @@ export async function queueThumbnailGeneration(
   fileId: string,
   actualFilename: string,
   mimeType: string,
-  originalName: string,
 ): Promise<string> {
   const jobId = await enqueueJob("thumbnail_jobs", {
     fileId,
     actualFilename,
     mimeType,
-    originalName,
   });
   logger.info(
     `Queued thumbnail generation for: ${actualFilename} (job ${jobId})`,

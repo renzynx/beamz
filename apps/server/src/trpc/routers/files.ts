@@ -152,6 +152,39 @@ export const filesRouter = router({
         });
       }
 
+      // Clean up old thumbnail and preview files before regenerating
+      if (file.metadata) {
+        try {
+          const metadata = superjson.parse<FileMetadata>(file.metadata);
+
+          const filesToCleanup: string[] = [];
+
+          // Add old thumbnail file if it exists
+          if (metadata.thumbnail) {
+            filesToCleanup.push(join(UPLOAD_DIR, metadata.thumbnail));
+          }
+
+          // Add old preview file if it exists
+          if (metadata.preview) {
+            filesToCleanup.push(join(UPLOAD_DIR, metadata.preview));
+          }
+
+          // Delete old files if they exist
+          if (filesToCleanup.length > 0) {
+            await enqueueDiskCleanup(
+              filesToCleanup,
+              "Cleanup old thumbnails/previews",
+            );
+          }
+        } catch (error) {
+          console.warn(
+            "Failed to queue delete thumbnail/preview files:",
+            error,
+          );
+          // Don't fail the operation if cleanup fails
+        }
+      }
+
       await enqueueThumbnail(
         file.id,
         getStoredName(file.key, file.originalName),

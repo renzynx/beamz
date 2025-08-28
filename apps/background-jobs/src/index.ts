@@ -129,7 +129,7 @@ const app = new Hono()
   .post("/enqueue/thumbnail", async (c) => {
     try {
       const body = await c.req.json();
-      const { fileId, actualFilename, mimeType, originalName } = body;
+      const { fileId, actualFilename, mimeType } = body;
 
       if (!isSupportedFileType(mimeType)) {
         const response = {
@@ -144,7 +144,6 @@ const app = new Hono()
         fileId,
         actualFilename,
         mimeType,
-        originalName || "",
       );
 
       const response = {
