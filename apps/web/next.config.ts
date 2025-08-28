@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  experimental: { proxyTimeout: 1000 * 300 },
   images: {
     remotePatterns: [
       {

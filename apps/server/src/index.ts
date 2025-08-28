@@ -1,5 +1,8 @@
 import { trpcServer } from "@hono/trpc-server";
 import { Hono } from "hono";
+import { rateLimiter } from "hono-rate-limiter";
+import { getConnInfo } from "hono/bun";
+import { every } from "hono/combine";
 import { logger } from "hono/logger";
 import SuperJSON from "superjson";
 import { auth } from "./lib/auth";
@@ -12,22 +15,35 @@ import { appRouter } from "./trpc";
 
 const app = new Hono().basePath("/api");
 
+const rateLimit = rateLimiter({
+  windowMs: 60 * 1000,
+  limit: 60,
+  keyGenerator: (c) =>
+    // Prefer the first IP in X-Forwarded-For when present
+    c.req.header("x-forwarded-for")?.split(",")[0].trim() ||
+    getConnInfo(c).remote.address ||
+    "unknown",
+});
+
 app.use(logger());
 app.use(
   "/trpc/*",
-  trpcServer({
-    router: appRouter,
-    endpoint: "/api/trpc",
-    createContext: (_opts, context) => {
-      return createContext({ context });
-    },
-  }),
+  every(
+    rateLimit,
+    trpcServer({
+      router: appRouter,
+      endpoint: "/api/trpc",
+      createContext: (_opts, context) => {
+        return createContext({ context });
+      },
+    }),
+  ),
 );
 
 app.on(["POST", "GET"], "/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/", upload);
-app.route("/", file);
-app.get("/settings", (c) =>
+app.use(rateLimit).route("/", file);
+app.use(rateLimit).get("/settings", (c) =>
   c.json({
     appName: SETTINGS.appName,
     enableSignUp: SETTINGS.enableSignUp,
