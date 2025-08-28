@@ -65,7 +65,7 @@ RUN echo '#!/bin/sh' > /app/start.sh \
  && echo 'echo "Migrations completed, starting services..."' >> /app/start.sh \
  && echo 'cd /app/apps/server && bun dist/index.js &' >> /app/start.sh \
  && echo 'API_PID=$!' >> /app/start.sh \
- && echo 'cd /app/apps/web && bun ./apps/web/server.js &' >> /app/start.sh \
+ && echo 'cd /app/apps/web && NODE_OPTIONS="--http-server-default-timeout=0" bun ./apps/web/server.js &' >> /app/start.sh \
  && echo 'WEB_PID=$!' >> /app/start.sh \
  && echo 'cd /app/apps/background-jobs && bun dist/index.js &' >> /app/start.sh \
  && echo 'JOBS_PID=$!' >> /app/start.sh \

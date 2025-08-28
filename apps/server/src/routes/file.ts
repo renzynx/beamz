@@ -30,7 +30,7 @@ app.get(
       return c.text("Not Found", 404);
     }
 
-    c.header("Cache-Control", "public, max-age=31536000, immutable");
+    c.header("Cache-Control", "public, max-age=31536000");
 
     return c.body(Bun.file(filePath).stream());
   },
