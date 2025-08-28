@@ -120,13 +120,34 @@ func clientIP(remoteAddr string) string {
 	return remoteAddr
 }
 
+// requestProto derives the request scheme with precedence:
+// X-Forwarded-Proto -> req.TLS -> BaseURL scheme -> http
+func (ps *ProxyServer) requestProto(req *http.Request) string {
+	if v := req.Header.Get("X-Forwarded-Proto"); v != "" {
+		return v
+	}
+	if req.TLS != nil {
+		return "https"
+	}
+	if ps.config.BaseURL != "" {
+		if u, err := url.Parse(ps.config.BaseURL); err == nil && u.Scheme != "" {
+			return u.Scheme
+		}
+	}
+	return "http"
+}
+
 func (ps *ProxyServer) setupAPIProxy(apiURL *url.URL) {
 	originalDirector := ps.apiProxy.Director
 	ps.apiProxy.Director = func(req *http.Request) {
+		// preserve incoming host for forwarded headers
+		incomingHost := req.Host
+
 		originalDirector(req)
+		// ensure upstream Host is the API host
 		req.Host = apiURL.Host
 
-		// Forward client IP and proto
+		// Forward client IP
 		ip := clientIP(req.RemoteAddr)
 		if ip != "" {
 			if prior := req.Header.Get("X-Forwarded-For"); prior == "" {
@@ -137,27 +158,25 @@ func (ps *ProxyServer) setupAPIProxy(apiURL *url.URL) {
 			req.Header.Set("X-Real-IP", ip)
 		}
 
+		// Derive and set proto if not present
+		proto := ps.requestProto(req)
 		if req.Header.Get("X-Forwarded-Proto") == "" {
-			if req.TLS != nil {
-				req.Header.Set("X-Forwarded-Proto", "https")
-			} else {
-				req.Header.Set("X-Forwarded-Proto", "http")
-			}
+			req.Header.Set("X-Forwarded-Proto", proto)
 		}
 
+		// Preserve original host for forwarding so backend issues cookies for public host
 		if req.Header.Get("X-Forwarded-Host") == "" {
-			req.Header.Set("X-Forwarded-Host", req.Host)
+			req.Header.Set("X-Forwarded-Host", incomingHost)
 		}
 
-		// Add Forwarded header for RFC compliant proxies
-		proto := "http"
-		if req.TLS != nil {
-			proto = "https"
+		// Set Forwarded header if not already present
+		if req.Header.Get("Forwarded") == "" {
+			ipval := ip
+			if ipval == "" {
+				ipval = "unknown"
+			}
+			req.Header.Set("Forwarded", fmt.Sprintf("for=%s;host=%s;proto=%s", ipval, incomingHost, proto))
 		}
-		if ip == "" {
-			ip = "unknown"
-		}
-		req.Header.Set("Forwarded", fmt.Sprintf("for=%s;host=%s;proto=%s", ip, req.Host, proto))
 	}
 
 	ps.apiProxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
@@ -175,8 +194,8 @@ func (ps *ProxyServer) setupNextJSProxy(nextjsURL, apiURL *url.URL) {
 
 	originalDirector := ps.nextjsProxy.Director
 	ps.nextjsProxy.Director = func(req *http.Request) {
-		// Store original host for header forwarding
-		originalHost := req.Host
+		// capture incoming host before director rewrites anything
+		incomingHost := req.Host
 		originalXForwardedHost := req.Header.Get("X-Forwarded-Host")
 
 		originalDirector(req)
@@ -188,6 +207,7 @@ func (ps *ProxyServer) setupNextJSProxy(nextjsURL, apiURL *url.URL) {
 
 		// Redirect internal API requests to API server
 		if strings.HasPrefix(req.URL.Path, "/api/") {
+			// proxy to API backend
 			req.URL.Scheme = apiURL.Scheme
 			req.URL.Host = apiURL.Host
 			req.Host = apiURL.Host
@@ -195,27 +215,34 @@ func (ps *ProxyServer) setupNextJSProxy(nextjsURL, apiURL *url.URL) {
 				log.Printf("NextJS internal API request: %s %s -> %s", req.Method, req.URL.Path, ps.config.APIURL)
 			}
 		} else {
-			// For NextJS requests, fix the forwarded headers
-			req.Host = nextjsURL.Host
+			// For NextJS requests, preserve the original host so Next generates correct cookies/links
+			req.Host = incomingHost
 
-			// Set proper forwarded headers for NextJS Server Actions
+			// Set X-Forwarded-Host to original incoming host if not present
 			if originalXForwardedHost == "" {
-				req.Header.Set("X-Forwarded-Host", originalHost)
+				req.Header.Set("X-Forwarded-Host", incomingHost)
 			}
-			req.Header.Set("X-Forwarded-Proto", "http")
+
+			// Derive proto and set if not present
+			proto := ps.requestProto(req)
+			if req.Header.Get("X-Forwarded-Proto") == "" {
+				req.Header.Set("X-Forwarded-Proto", proto)
+			}
+
+			// If BaseURL provided, prefer its host for forwarded host headers
 			if ps.config.BaseURL != "" {
 				if baseURL, err := url.Parse(ps.config.BaseURL); err == nil {
-					req.Header.Set("X-Forwarded-Proto", baseURL.Scheme)
+					if baseURL.Scheme != "" {
+						req.Header.Set("X-Forwarded-Proto", baseURL.Scheme)
+					}
 					if baseURL.Host != "" {
 						req.Header.Set("X-Forwarded-Host", baseURL.Host)
 					}
 				}
 			}
-
-			// Note: retain X-Forwarded-For instead of removing it so backend can see client IP
 		}
 
-		// Always append client IP headers so backend see true client address
+		// Always append client IP headers so backend sees true client address
 		ip := clientIP(req.RemoteAddr)
 		if ip != "" {
 			if prior := req.Header.Get("X-Forwarded-For"); prior == "" {
@@ -227,15 +254,13 @@ func (ps *ProxyServer) setupNextJSProxy(nextjsURL, apiURL *url.URL) {
 		}
 
 		// Ensure Forwarded header is present
-		proto := "http"
-		if req.TLS != nil {
-			proto = "https"
-		}
-		if ip == "" {
-			ip = "unknown"
-		}
 		if req.Header.Get("Forwarded") == "" {
-			req.Header.Set("Forwarded", fmt.Sprintf("for=%s;host=%s;proto=%s", ip, req.Host, proto))
+			proto := ps.requestProto(req)
+			ipval := ip
+			if ipval == "" {
+				ipval = "unknown"
+			}
+			req.Header.Set("Forwarded", fmt.Sprintf("for=%s;host=%s;proto=%s", ipval, incomingHost, proto))
 		}
 	}
 
