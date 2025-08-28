@@ -14,7 +14,7 @@ const app = new Hono();
 app.use(
   "/upload/*",
   except(
-    "/upload/chunk",
+    ["/upload/chunk", "/upload/status"],
     rateLimiter({
       windowMs: 60 * 1000,
       limit: 60,
