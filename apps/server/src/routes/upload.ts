@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { rateLimiter } from "hono-rate-limiter";
 import { getConnInfo } from "hono/bun";
 import { except } from "hono/combine";
+import { timeout } from "hono/timeout";
 import cancelApp from "./handlers/cancelUpload";
 import finishApp from "./handlers/finishUpload";
 import initApp from "./handlers/initUpload";
@@ -26,9 +27,21 @@ app.use(
   ),
 );
 
-app.route("/upload", uploadShareX);
+app
+  .use(
+    timeout(
+      600 * 1000, // 10 minutes
+    ),
+  )
+  .route("/upload", uploadShareX);
 app.route("/upload/init", initApp);
-app.route("/upload/chunk", chunkApp);
+app
+  .use(
+    timeout(
+      300 * 1000, // 5 minutes
+    ),
+  )
+  .route("/upload/chunk", chunkApp);
 app.route("/upload/finish", finishApp);
 app.route("/upload/status", statusApp);
 app.route("/upload/cancel", cancelApp);
