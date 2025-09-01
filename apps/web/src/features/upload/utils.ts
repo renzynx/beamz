@@ -64,12 +64,6 @@ export class ChunkedUploader {
             "Network error. Please check your connection and try again.",
           ),
         );
-      xhr.ontimeout = () =>
-        reject(
-          new Error(
-            "Request timed out. Please check your connection and try again.",
-          ),
-        );
 
       xhr.send(JSON.stringify({ filename, size }));
     });
@@ -146,13 +140,6 @@ export class ChunkedUploader {
         );
       };
 
-      xhr.ontimeout = () => {
-        if (abortSignal) {
-          abortSignal.removeEventListener("abort", abortHandler);
-        }
-        reject(new Error("Chunk upload timed out. Please try again."));
-      };
-
       xhr.onabort = () => {
         if (abortSignal) {
           abortSignal.removeEventListener("abort", abortHandler);
@@ -197,7 +184,6 @@ export class ChunkedUploader {
 
       xhr.onerror = () =>
         reject(new Error("Network error during upload finish"));
-      xhr.ontimeout = () => reject(new Error("Upload finish timeout"));
 
       xhr.send();
     });
@@ -227,7 +213,6 @@ export class ChunkedUploader {
 
       xhr.onerror = () =>
         reject(new Error("Network error during status check"));
-      xhr.ontimeout = () => reject(new Error("Status check timeout"));
 
       xhr.send();
     });
@@ -257,7 +242,6 @@ export class ChunkedUploader {
 
       xhr.onerror = () =>
         reject(new Error("Network error during upload cancellation"));
-      xhr.ontimeout = () => reject(new Error("Upload cancellation timeout"));
 
       xhr.send();
     });
