@@ -34,17 +34,6 @@ RUN cp -r public .next/standalone/apps/web/ && cp -r .next/static .next/standalo
 
 WORKDIR /app
 
-FROM golang:1.24.5-alpine AS gateway-builder
-WORKDIR /src
-
-# Copy only the gateway source from the builder stage to keep context small
-COPY --from=builder /app/apps/gateway ./apps/gateway
-
-# Install minimal deps and build a static binary
-RUN apk add --no-cache ca-certificates git \
- && cd apps/gateway \
- && CGO_ENABLED=0 GOOS=linux go build -ldflags='-s -w' -o /app/gateway ./main.go
-
 FROM base AS runtime
 WORKDIR /app
 
@@ -64,10 +53,7 @@ COPY --from=installer --chown=beam:beam /app/apps/background-jobs/dist ./apps/ba
 COPY --from=installer --chown=beam:beam /app/apps/web/.next/standalone/ ./apps/web/
 COPY --from=installer --chown=beam:beam /app/node_modules/@ffmpeg-installer ./node_modules/@ffmpeg-installer
 
-# Copy compiled gateway binary from gateway-builder stage
-COPY --from=gateway-builder --chown=beam:beam /app/gateway ./apps/gateway/gateway
-
-EXPOSE 8080
+EXPOSE 3000
 
 ENV HOSTNAME="0.0.0.0"
 ENV NODE_ENV=production
@@ -83,10 +69,8 @@ RUN echo '#!/bin/sh' > /app/start.sh \
  && echo 'WEB_PID=$!' >> /app/start.sh \
  && echo 'cd /app/apps/background-jobs && bun dist/index.js &' >> /app/start.sh \
  && echo 'JOBS_PID=$!' >> /app/start.sh \
- && echo 'cd /app/apps/gateway && ./gateway &' >> /app/start.sh \
- && echo 'GATEWAY_PID=$!' >> /app/start.sh \
- && echo 'echo "All services started. API: $API_PID, Web: $WEB_PID, Jobs: $JOBS_PID, GATEWAY: $GATEWAY_PID"' >> /app/start.sh \
- && echo 'trap "kill $API_PID $WEB_PID $JOBS_PID $GATEWAY_PID 2>/dev/null || true" EXIT' >> /app/start.sh \
+ && echo 'echo "All services started. API: $API_PID, Web: $WEB_PID, Jobs: $JOBS_PID"' >> /app/start.sh \
+ && echo 'trap "kill $API_PID $WEB_PID $JOBS_PID 2>/dev/null || true" EXIT' >> /app/start.sh \
  && echo 'wait' >> /app/start.sh \
  && chmod +x /app/start.sh \
  && chown beam:beam /app/start.sh

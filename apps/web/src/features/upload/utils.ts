@@ -71,7 +71,6 @@ export class ChunkedUploader {
           ),
         );
 
-      xhr.timeout = 10000; // 10 second timeout
       xhr.send(JSON.stringify({ filename, size }));
     });
   }
@@ -161,9 +160,6 @@ export class ChunkedUploader {
         reject(new Error("Upload was cancelled"));
       };
 
-      // Set timeout (30 seconds for chunk uploads)
-      xhr.timeout = 30000;
-
       xhr.send(chunk);
     });
   }
@@ -203,7 +199,6 @@ export class ChunkedUploader {
         reject(new Error("Network error during upload finish"));
       xhr.ontimeout = () => reject(new Error("Upload finish timeout"));
 
-      xhr.timeout = 10000; // 10 second timeout
       xhr.send();
     });
   }
@@ -234,7 +229,6 @@ export class ChunkedUploader {
         reject(new Error("Network error during status check"));
       xhr.ontimeout = () => reject(new Error("Status check timeout"));
 
-      xhr.timeout = 5000; // 5 second timeout
       xhr.send();
     });
   }
@@ -265,7 +259,6 @@ export class ChunkedUploader {
         reject(new Error("Network error during upload cancellation"));
       xhr.ontimeout = () => reject(new Error("Upload cancellation timeout"));
 
-      xhr.timeout = 5000; // 5 second timeout
       xhr.send();
     });
   }
