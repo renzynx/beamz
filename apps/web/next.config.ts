@@ -35,9 +35,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: `http://localhost:${
-          process.env.API_PORT || 3333
-        }/api/:path*`,
+        destination: `http://localhost:${process.env.API_PORT || 3333}/api/:path*`,
       },
     ];
   },
