@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4
-FROM oven/bun:1.2.18-alpine AS base
+FROM oven/bun:1.2.21-alpine AS base
 
 ARG TURBO_TEAM
 ENV TURBO_TEAM=$TURBO_TEAM

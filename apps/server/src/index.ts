@@ -53,9 +53,5 @@ app.use(rateLimit).get("/settings", (c) =>
 
 export default {
   port: process.env.API_PORT || 3333,
-  fetch: async (req: Request, server: any): Promise<Response> => {
-    server.timeout(req, 255);
-    return app.fetch(req);
-  },
-  idleTimeout: 0,
+  fetch: app.fetch
 };
